@@ -7,7 +7,7 @@ import type { EnvSchema, InferEnv } from "./types";
  * @throws Error if required variables are missing or have invalid values.
  */
 export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
-  const parsedEnv: Record<string, any> = {};
+  const parsedEnv: Record<string, string | number | boolean | undefined> = {};
   const validationErrors: string[] = [];
 
   // 1. Iterate over each key in the schema and validate/parse the corresponding env variable

@@ -43,11 +43,11 @@ If a required variable is missing or a value doesn't match its declared type, `c
 
 ## Schema Options
 
-| Option     | Type                             | Description                        |
-| ---------- | -------------------------------- | ---------------------------------- |
-| `type`     | `"string" \| "number" \| "boolean"` | The expected data type             |
-| `required` | `boolean`                        | Fail if the variable is missing    |
-| `default`  | `string \| number \| boolean`    | Fallback when the variable is unset |
+| Option     | Type                                | Description                         |
+| ---------- | ----------------------------------- | ----------------------------------- |
+| `type`     | `"string" \| "number" \| "boolean"` | The expected data type              |
+| `required` | `boolean`                           | Fail if the variable is missing     |
+| `default`  | `string \| number \| boolean`       | Fallback when the variable is unset |
 
 ## License
 
