@@ -1,8 +1,15 @@
-import type { EnvFormat, EnvOptions, EnvSchema, InferEnv } from "./types";
+import type {
+  EnvFormat,
+  EnvOptions,
+  EnvSchema,
+  FrameworkEnv,
+  FrameworkEnvConfig,
+  InferEnv,
+} from "./types";
 import { defaultEnvFiles, loadEnvFiles } from "./env-file";
 
 export { loadEnvFiles, defaultEnvFiles } from "./env-file";
-export type { EnvOptions } from "./types";
+export type { EnvOptions, FrameworkEnvConfig, FrameworkEnv } from "./types";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -197,4 +204,75 @@ export function createEnv<S extends EnvSchema>(
 
   // Everything successful, return the clean object with type safety
   return parsedEnv as InferEnv<S>;
+}
+
+// ---------------------------------------------------------------------------
+// Framework adapters
+// ---------------------------------------------------------------------------
+
+function createFrameworkEnv<C extends EnvSchema, S extends EnvSchema>(
+  config: FrameworkEnvConfig<C, S>,
+  clientPrefix: string,
+): FrameworkEnv<C, S> {
+  const allErrors: string[] = [];
+  const collectErrors = (errors: string[]) => allErrors.push(...errors);
+
+  const client = createEnv(config.client, {
+    ...config.options,
+    prefix: clientPrefix,
+    onError: collectErrors,
+  });
+
+  const server = createEnv(config.server, {
+    ...config.options,
+    onError: collectErrors,
+  });
+
+  if (allErrors.length > 0) {
+    if (config.options?.onError) {
+      config.options.onError(allErrors);
+    } else {
+      throw new Error(
+        `\n\ud83d\udea8 Env-Guard validation errors on app start:\n` +
+          allErrors.join("\n"),
+      );
+    }
+  }
+
+  return { client, server };
+}
+
+/** Next.js adapter — prefixes client variables with `NEXT_PUBLIC_`. */
+export function createNextEnv<C extends EnvSchema, S extends EnvSchema>(
+  config: FrameworkEnvConfig<C, S>,
+): FrameworkEnv<C, S> {
+  return createFrameworkEnv(config, "NEXT_PUBLIC_");
+}
+
+/** Vite adapter — prefixes client variables with `VITE_`. */
+export function createViteEnv<C extends EnvSchema, S extends EnvSchema>(
+  config: FrameworkEnvConfig<C, S>,
+): FrameworkEnv<C, S> {
+  return createFrameworkEnv(config, "VITE_");
+}
+
+/** Astro adapter — prefixes client variables with `PUBLIC_`. */
+export function createAstroEnv<C extends EnvSchema, S extends EnvSchema>(
+  config: FrameworkEnvConfig<C, S>,
+): FrameworkEnv<C, S> {
+  return createFrameworkEnv(config, "PUBLIC_");
+}
+
+/** SvelteKit adapter — prefixes client variables with `PUBLIC_`. */
+export function createSvelteKitEnv<C extends EnvSchema, S extends EnvSchema>(
+  config: FrameworkEnvConfig<C, S>,
+): FrameworkEnv<C, S> {
+  return createFrameworkEnv(config, "PUBLIC_");
+}
+
+/** Remix adapter — no automatic prefix; provides client / server separation only. */
+export function createRemixEnv<C extends EnvSchema, S extends EnvSchema>(
+  config: FrameworkEnvConfig<C, S>,
+): FrameworkEnv<C, S> {
+  return createFrameworkEnv(config, "");
 }

@@ -14,6 +14,7 @@ Strongly typed, fail-fast environment variable validation for Node.js.
 - **Array / list type** — parse comma-separated values into typed arrays
 - **`.env` file loading** — built-in support for `.env`, `.env.local`, `.env.{NODE_ENV}` with zero dependencies
 - **Prefix scoping** — scope variables by prefix for libraries or microservices
+- **Framework adapters** — first-class integrations for Next.js, Vite, Astro, SvelteKit, and Remix
 
 ## Installation
 
@@ -230,6 +231,75 @@ const env = createEnv(schema, {
 ```
 
 If `onError` is not provided, `createEnv` throws an `Error` with the default formatted message.
+
+### Framework Adapters
+
+First-class integrations for popular frameworks. Each adapter provides separate `client` / `server` schemas and automatically applies the framework's public-variable prefix to client-side keys:
+
+| Adapter              | Client prefix  | Import                                           |
+| -------------------- | -------------- | ------------------------------------------------ |
+| `createNextEnv`      | `NEXT_PUBLIC_` | `import { createNextEnv } from "env-guard"`      |
+| `createViteEnv`      | `VITE_`        | `import { createViteEnv } from "env-guard"`      |
+| `createAstroEnv`     | `PUBLIC_`      | `import { createAstroEnv } from "env-guard"`     |
+| `createSvelteKitEnv` | `PUBLIC_`      | `import { createSvelteKitEnv } from "env-guard"` |
+| `createRemixEnv`     | _(none)_       | `import { createRemixEnv } from "env-guard"`     |
+
+#### Next.js example
+
+```ts
+import { createNextEnv } from "env-guard";
+
+const env = createNextEnv({
+  client: {
+    API_URL: { type: "string", format: "url", required: true },
+    // reads process.env.NEXT_PUBLIC_API_URL
+  },
+  server: {
+    DATABASE_URL: { type: "string", required: true },
+    // reads process.env.DATABASE_URL (no prefix)
+  },
+});
+
+env.client.API_URL; // string — from NEXT_PUBLIC_API_URL
+env.server.DATABASE_URL; // string — from DATABASE_URL
+```
+
+#### Vite example
+
+```ts
+import { createViteEnv } from "env-guard";
+
+const env = createViteEnv({
+  client: {
+    APP_TITLE: { type: "string", required: true },
+    // reads process.env.VITE_APP_TITLE
+  },
+  server: {
+    API_SECRET: { type: "string", required: true },
+  },
+});
+```
+
+#### Shared options
+
+All adapters accept an optional `options` object (same as `createEnv`, except `prefix` which is set by the adapter):
+
+```ts
+const env = createNextEnv({
+  client: {
+    /* ... */
+  },
+  server: {
+    /* ... */
+  },
+  options: {
+    envFiles: true,
+    onError: (errors) => console.error(errors),
+  },
+});
+```
+
+Errors from both `client` and `server` schemas are collected and reported together in a single batch, so you see all problems at once.
 
 ## License
 

@@ -84,3 +84,20 @@ export interface EnvOptions {
   /** Custom error handler. Receives the array of error strings. If provided, replaces the default throw behaviour — you must throw or exit yourself if desired. */
   onError?: (errors: string[]) => void;
 }
+
+export interface FrameworkEnvConfig<
+  C extends EnvSchema = EnvSchema,
+  S extends EnvSchema = EnvSchema,
+> {
+  /** Schema for client-side (public) environment variables. */
+  client: C;
+  /** Schema for server-side (private) environment variables. */
+  server: S;
+  /** Shared options passed to both client and server `createEnv` calls. `prefix` is ignored — the adapter sets it automatically. */
+  options?: Omit<EnvOptions, "prefix">;
+}
+
+export interface FrameworkEnv<C extends EnvSchema, S extends EnvSchema> {
+  client: InferEnv<C>;
+  server: InferEnv<S>;
+}
