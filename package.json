@@ -1,5 +1,5 @@
 {
-  "name": "env-guard",
+  "name": "@frauschert/env-guard",
   "version": "1.0.0",
   "description": "Strongly typed, fail-fast environment variable validation for Node.js",
   "main": "dist/index.js",
@@ -14,6 +14,9 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
