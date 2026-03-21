@@ -4,6 +4,7 @@ export interface EnvVarConfig {
   type: EnvDataType;
   required?: boolean;
   default?: string | number | boolean;
+  validate?: (value: string | number | boolean) => boolean;
 }
 
 export type EnvSchema = Record<string, EnvVarConfig>;

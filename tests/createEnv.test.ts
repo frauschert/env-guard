@@ -76,4 +76,78 @@ describe("createEnv", () => {
       }),
     ).toThrow(/A[\s\S]*B/);
   });
+
+  describe("custom validate function", () => {
+    it("passes when validate returns true", () => {
+      process.env.PORT = "3000";
+      const env = createEnv({
+        PORT: {
+          type: "number",
+          required: true,
+          validate: (v) => (v as number) >= 1 && (v as number) <= 65535,
+        },
+      });
+      expect(env.PORT).toBe(3000);
+    });
+
+    it("throws when validate returns false", () => {
+      process.env.PORT = "99999";
+      expect(() =>
+        createEnv({
+          PORT: {
+            type: "number",
+            required: true,
+            validate: (v) => (v as number) >= 1 && (v as number) <= 65535,
+          },
+        }),
+      ).toThrow("Custom validation failed");
+    });
+
+    it("validates string variables", () => {
+      process.env.API_URL = "not-a-url";
+      expect(() =>
+        createEnv({
+          API_URL: {
+            type: "string",
+            required: true,
+            validate: (v) => (v as string).startsWith("https://"),
+          },
+        }),
+      ).toThrow("Custom validation failed");
+    });
+
+    it("validates boolean variables", () => {
+      process.env.FEATURE_FLAG = "true";
+      const env = createEnv({
+        FEATURE_FLAG: {
+          type: "boolean",
+          required: true,
+          validate: (v) => v === true,
+        },
+      });
+      expect(env.FEATURE_FLAG).toBe(true);
+    });
+
+    it("skips validate for missing optional variables", () => {
+      const env = createEnv({
+        OPT: {
+          type: "string",
+          validate: () => false,
+        },
+      });
+      expect(env.OPT).toBeUndefined();
+    });
+
+    it("runs validate on default values", () => {
+      expect(() =>
+        createEnv({
+          PORT: {
+            type: "number",
+            default: 0,
+            validate: (v) => (v as number) >= 1,
+          },
+        }),
+      ).toThrow("Custom validation failed");
+    });
+  });
 });

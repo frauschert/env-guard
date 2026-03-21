@@ -25,11 +25,7 @@ export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
     if (rawValue === undefined) {
       parsedEnv[key] =
         config.default !== undefined ? config.default : undefined;
-      continue;
-    }
-
-    // 3. Type validation and parsing
-    if (config.type === "number") {
+    } else if (config.type === "number") {
       const parsedNumber = Number(rawValue);
       if (Number.isNaN(parsedNumber)) {
         validationErrors.push(
@@ -53,9 +49,18 @@ export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
       // If it's a string, we just take it as is
       parsedEnv[key] = rawValue;
     }
+
+    // 4. Run custom validate function if provided
+    if (config.validate && parsedEnv[key] !== undefined) {
+      if (!config.validate(parsedEnv[key]!)) {
+        validationErrors.push(
+          `❌ '${key}': Custom validation failed for value '${parsedEnv[key]}'.`,
+        );
+      }
+    }
   }
 
-  // 4. Fail-Fast: If errors are found, abort the app IMMEDIATELY!
+  // 5. Fail-Fast: If errors are found, abort the app IMMEDIATELY!
   if (validationErrors.length > 0) {
     const errorMessage =
       `\n🚨 Env-Guard validation errors on app start:\n` +
