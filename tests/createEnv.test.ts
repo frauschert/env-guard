@@ -150,4 +150,91 @@ describe("createEnv", () => {
       ).toThrow("Custom validation failed");
     });
   });
+
+  describe("choices option", () => {
+    it("accepts a value that is in the choices list", () => {
+      process.env.NODE_ENV = "production";
+      const env = createEnv({
+        NODE_ENV: {
+          type: "string",
+          required: true,
+          choices: ["development", "staging", "production"] as const,
+        },
+      });
+      expect(env.NODE_ENV).toBe("production");
+    });
+
+    it("throws when value is not in choices", () => {
+      process.env.NODE_ENV = "invalid";
+      expect(() =>
+        createEnv({
+          NODE_ENV: {
+            type: "string",
+            required: true,
+            choices: ["development", "staging", "production"] as const,
+          },
+        }),
+      ).toThrow("not in allowed choices");
+    });
+
+    it("works with number choices", () => {
+      process.env.LOG_LEVEL = "2";
+      const env = createEnv({
+        LOG_LEVEL: {
+          type: "number",
+          required: true,
+          choices: [0, 1, 2, 3] as const,
+        },
+      });
+      expect(env.LOG_LEVEL).toBe(2);
+    });
+
+    it("throws for number not in choices", () => {
+      process.env.LOG_LEVEL = "5";
+      expect(() =>
+        createEnv({
+          LOG_LEVEL: {
+            type: "number",
+            required: true,
+            choices: [0, 1, 2, 3] as const,
+          },
+        }),
+      ).toThrow("not in allowed choices");
+    });
+
+    it("works with boolean choices", () => {
+      process.env.STRICT = "true";
+      const env = createEnv({
+        STRICT: {
+          type: "boolean",
+          required: true,
+          choices: [true] as const,
+        },
+      });
+      expect(env.STRICT).toBe(true);
+    });
+
+    it("validates choices on default values", () => {
+      expect(() =>
+        createEnv({
+          MODE: {
+            type: "string",
+            default: "debug",
+            choices: ["development", "production"] as const,
+          },
+        }),
+      ).toThrow("not in allowed choices");
+    });
+
+    it("skips choices check for missing optional variables", () => {
+      delete process.env.MODE;
+      const env = createEnv({
+        MODE: {
+          type: "string",
+          choices: ["a", "b"] as const,
+        },
+      });
+      expect(env.MODE).toBeUndefined();
+    });
+  });
 });

@@ -50,7 +50,16 @@ export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
       parsedEnv[key] = rawValue;
     }
 
-    // 4. Run custom validate function if provided
+    // 4. Check choices constraint
+    if (config.choices && parsedEnv[key] !== undefined) {
+      if (!config.choices.includes(parsedEnv[key]!)) {
+        validationErrors.push(
+          `❌ '${key}': Value '${parsedEnv[key]}' is not in allowed choices [${config.choices.map((c) => `'${c}'`).join(", ")}].`,
+        );
+      }
+    }
+
+    // 5. Run custom validate function if provided
     if (config.validate && parsedEnv[key] !== undefined) {
       if (!config.validate(parsedEnv[key]!)) {
         validationErrors.push(

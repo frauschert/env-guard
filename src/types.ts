@@ -5,15 +5,19 @@ export interface EnvVarConfig {
   required?: boolean;
   default?: string | number | boolean;
   validate?: (value: string | number | boolean) => boolean;
+  choices?: readonly (string | number | boolean)[];
 }
 
 export type EnvSchema = Record<string, EnvVarConfig>;
 
-type InferDataType<T extends EnvVarConfig> = T["type"] extends "number"
-  ? number
-  : T["type"] extends "boolean"
-    ? boolean
-    : string;
+type InferDataType<T extends EnvVarConfig> =
+  T["choices"] extends readonly (infer C)[]
+    ? C
+    : T["type"] extends "number"
+      ? number
+      : T["type"] extends "boolean"
+        ? boolean
+        : string;
 
 export type InferEnv<S extends EnvSchema> = {
   [K in keyof S]: S[K]["required"] extends true
