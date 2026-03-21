@@ -1,4 +1,8 @@
-import type { EnvFormat, EnvSchema, InferEnv } from "./types";
+import type { EnvFormat, EnvOptions, EnvSchema, InferEnv } from "./types";
+import { defaultEnvFiles, loadEnvFiles } from "./env-file";
+
+export { loadEnvFiles, defaultEnvFiles } from "./env-file";
+export type { EnvOptions } from "./types";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,10 +32,22 @@ const FORMAT_VALIDATORS: Record<EnvFormat, (value: string) => boolean> = {
 /**
  * Creates a strongly typed environment object based on the provided schema.
  * @param schema The schema defining the expected environment variables and their types.
+ * @param options Optional configuration (e.g. .env file loading).
  * @returns A strongly typed object with the parsed environment variables.
  * @throws Error if required variables are missing or have invalid values.
  */
-export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
+export function createEnv<S extends EnvSchema>(
+  schema: S,
+  options?: EnvOptions,
+): InferEnv<S> {
+  // Load .env files if requested
+  if (options?.envFiles) {
+    const files = Array.isArray(options.envFiles)
+      ? options.envFiles
+      : defaultEnvFiles();
+    loadEnvFiles(files);
+  }
+
   const parsedEnv: Record<
     string,
     string | number | boolean | (string | number | boolean)[] | undefined

@@ -12,6 +12,7 @@ Strongly typed, fail-fast environment variable validation for Node.js.
 - **Enum / union types** — restrict values to a fixed set with `choices`
 - **Format presets** — built-in validators for `url`, `email`, `ip`, `port`, `uuid`
 - **Array / list type** — parse comma-separated values into typed arrays
+- **`.env` file loading** — built-in support for `.env`, `.env.local`, `.env.{NODE_ENV}` with zero dependencies
 
 ## Installation
 
@@ -167,9 +168,37 @@ const env = createEnv({
 ❌ 'PORTS': Array item 'abc' is not a valid number.
 ```
 
+### `.env` File Loading
+
+Load environment variables from `.env` files without any external dependency. Pass `envFiles: true` to use the default file list, or provide a custom array:
+
+```ts
+// Default: loads .env, .env.{NODE_ENV}, .env.local (in order)
+const env = createEnv(schema, { envFiles: true });
+
+// Custom file list
+const env = createEnv(schema, {
+  envFiles: [".env", ".env.production", ".env.local"],
+});
 ```
+
+**Loading rules:**
+
+- Files are read in order; the first file to define a variable wins
+- Existing `process.env` values are **never** overwritten — real environment always takes precedence
+- Missing files are silently skipped
+- Supports `KEY=value`, quoted values (`"..."` / `'...'`), inline comments, and blank lines
+
+Default file resolution order (when `envFiles: true`):
+
+1. `.env` — base defaults
+2. `.env.{NODE_ENV}` — environment-specific overrides (only if `NODE_ENV` is set)
+3. `.env.local` — local machine overrides (typically git-ignored)
 
 ## License
 
 MIT
+
+```
+
 ```

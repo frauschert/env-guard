@@ -75,3 +75,8 @@ export type InferEnv<S extends EnvSchema> = {
       ? InferDataType<S[K]> | undefined
       : InferDataType<S[K]>;
 };
+
+export interface EnvOptions {
+  /** Load `.env` files before validation. Defaults to `false`. */
+  envFiles?: boolean | string[];
+}
