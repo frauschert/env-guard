@@ -243,11 +243,11 @@ describe("createEnv", () => {
       process.env.PORT = "3000";
       expect(() =>
         createEnv({
-          // @ts-expect-error — intentionally testing runtime guard
           PORT: {
             type: "number",
             required: true,
             choices: [3000, 8080] as const,
+            // @ts-expect-error — intentionally testing runtime guard
             validate: (v) => (v as number) > 0,
           },
         }),
