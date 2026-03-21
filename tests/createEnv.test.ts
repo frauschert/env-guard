@@ -254,4 +254,116 @@ describe("createEnv", () => {
       ).toThrow("mutually exclusive");
     });
   });
+
+  describe("format option", () => {
+    it("accepts a valid URL", () => {
+      process.env.API_URL = "https://example.com/api";
+      const env = createEnv({
+        API_URL: { type: "string", format: "url", required: true },
+      });
+      expect(env.API_URL).toBe("https://example.com/api");
+    });
+
+    it("rejects an invalid URL", () => {
+      process.env.API_URL = "not-a-url";
+      expect(() =>
+        createEnv({
+          API_URL: { type: "string", format: "url", required: true },
+        }),
+      ).toThrow("does not match format 'url'");
+    });
+
+    it("accepts a valid email", () => {
+      process.env.CONTACT = "user@example.com";
+      const env = createEnv({
+        CONTACT: { type: "string", format: "email", required: true },
+      });
+      expect(env.CONTACT).toBe("user@example.com");
+    });
+
+    it("rejects an invalid email", () => {
+      process.env.CONTACT = "not-an-email";
+      expect(() =>
+        createEnv({
+          CONTACT: { type: "string", format: "email", required: true },
+        }),
+      ).toThrow("does not match format 'email'");
+    });
+
+    it("accepts a valid IPv4 address", () => {
+      process.env.SERVER_IP = "192.168.1.1";
+      const env = createEnv({
+        SERVER_IP: { type: "string", format: "ip", required: true },
+      });
+      expect(env.SERVER_IP).toBe("192.168.1.1");
+    });
+
+    it("accepts a valid IPv6 address", () => {
+      process.env.SERVER_IP = "::1";
+      const env = createEnv({
+        SERVER_IP: { type: "string", format: "ip", required: true },
+      });
+      expect(env.SERVER_IP).toBe("::1");
+    });
+
+    it("rejects an invalid IP address", () => {
+      process.env.SERVER_IP = "999.999.999.999";
+      expect(() =>
+        createEnv({
+          SERVER_IP: { type: "string", format: "ip", required: true },
+        }),
+      ).toThrow("does not match format 'ip'");
+    });
+
+    it("accepts a valid port", () => {
+      process.env.APP_PORT = "8080";
+      const env = createEnv({
+        APP_PORT: { type: "string", format: "port", required: true },
+      });
+      expect(env.APP_PORT).toBe("8080");
+    });
+
+    it("rejects an invalid port", () => {
+      process.env.APP_PORT = "99999";
+      expect(() =>
+        createEnv({
+          APP_PORT: { type: "string", format: "port", required: true },
+        }),
+      ).toThrow("does not match format 'port'");
+    });
+
+    it("rejects port 0", () => {
+      process.env.APP_PORT = "0";
+      expect(() =>
+        createEnv({
+          APP_PORT: { type: "string", format: "port", required: true },
+        }),
+      ).toThrow("does not match format 'port'");
+    });
+
+    it("accepts a valid UUID", () => {
+      process.env.REQUEST_ID = "550e8400-e29b-41d4-a716-446655440000";
+      const env = createEnv({
+        REQUEST_ID: { type: "string", format: "uuid", required: true },
+      });
+      expect(env.REQUEST_ID).toBe("550e8400-e29b-41d4-a716-446655440000");
+    });
+
+    it("rejects an invalid UUID", () => {
+      process.env.REQUEST_ID = "not-a-uuid";
+      expect(() =>
+        createEnv({
+          REQUEST_ID: { type: "string", format: "uuid", required: true },
+        }),
+      ).toThrow("does not match format 'uuid'");
+    });
+
+    it("skips format check for missing optional variables", () => {
+      delete process.env.OPT_URL;
+      const env = createEnv({
+        OPT_URL: { type: "string", format: "url" },
+      });
+      expect(env.OPT_URL).toBeUndefined();
+    });
+  });
 });

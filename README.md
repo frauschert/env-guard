@@ -10,6 +10,7 @@ Strongly typed, fail-fast environment variable validation for Node.js.
 - **Supports** `string`, `number`, and `boolean` types with defaults
 - **Custom validators** — supply a `validate` function for domain-specific checks
 - **Enum / union types** — restrict values to a fixed set with `choices`
+- **Format presets** — built-in validators for `url`, `email`, `ip`, `port`, `uuid`
 
 ## Installation
 
@@ -45,13 +46,14 @@ If a required variable is missing or a value doesn't match its declared type, `c
 
 ## Schema Options
 
-| Option     | Type                                       | Description                                                      |
-| ---------- | ------------------------------------------ | ---------------------------------------------------------------- |
-| `type`     | `"string" \| "number" \| "boolean"`        | The expected data type                                           |
-| `required` | `boolean`                                  | Fail if the variable is missing                                  |
-| `default`  | `string \| number \| boolean`              | Fallback when the variable is unset                              |
-| `choices`  | `readonly (string \| number \| boolean)[]` | Fixed set of allowed values (mutually exclusive with `validate`) |
-| `validate` | `(value) => boolean`                       | Custom validation function (mutually exclusive with `choices`)   |
+| Option     | Type                                           | Description                                                              |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
+| `type`     | `"string" \| "number" \| "boolean"`            | The expected data type                                                   |
+| `required` | `boolean`                                      | Fail if the variable is missing                                          |
+| `default`  | `string \| number \| boolean`                  | Fallback when the variable is unset                                      |
+| `choices`  | `readonly (string \| number \| boolean)[]`     | Fixed set of allowed values (exclusive with `validate`/`format`)         |
+| `validate` | `(value) => boolean`                           | Custom validation function (exclusive with `choices`/`format`)           |
+| `format`   | `"url" \| "email" \| "ip" \| "port" \| "uuid"` | Built-in format preset for strings (exclusive with `choices`/`validate`) |
 
 ### Custom Validators
 
@@ -100,7 +102,35 @@ If the value is not in the set:
 ❌ 'NODE_ENV': Value 'invalid' is not in allowed choices ['development', 'staging', 'production'].
 ```
 
-> **Note:** `choices` and `validate` are mutually exclusive — TypeScript will error if you try to use both on the same variable, and a runtime check guards against it for plain JavaScript consumers.
+> **Note:** `choices`, `validate`, and `format` are mutually exclusive — TypeScript will error if you try to combine them on the same variable, and a runtime check guards against it for plain JavaScript consumers.
+
+### String Format Presets
+
+Use `format` for built-in validation of common string formats:
+
+```ts
+const env = createEnv({
+  API_URL: { type: "string", format: "url", required: true },
+  CONTACT: { type: "string", format: "email", required: true },
+  SERVER_IP: { type: "string", format: "ip", required: true },
+  APP_PORT: { type: "string", format: "port", required: true },
+  REQUEST_ID: { type: "string", format: "uuid", required: true },
+});
+```
+
+| Format  | Validates                     |
+| ------- | ----------------------------- |
+| `url`   | Parseable URL (`new URL()`)   |
+| `email` | Basic `user@host.tld` pattern |
+| `ip`    | IPv4 or IPv6 address          |
+| `port`  | Integer between 1 and 65 535  |
+| `uuid`  | RFC 4122 hex-and-dash format  |
+
+If the value doesn't match:
+
+```
+❌ 'API_URL': Value 'not-a-url' does not match format 'url'.
+```
 
 ## License
 

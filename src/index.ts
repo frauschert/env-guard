@@ -1,4 +1,29 @@
-import type { EnvSchema, InferEnv } from "./types";
+import type { EnvFormat, EnvSchema, InferEnv } from "./types";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const IPV4_RE =
+  /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+const IPV6_RE = /^\[?([0-9a-f:]+)\]?$/i;
+
+const FORMAT_VALIDATORS: Record<EnvFormat, (value: string) => boolean> = {
+  url: (v) => {
+    try {
+      new URL(v);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  email: (v) => EMAIL_RE.test(v),
+  ip: (v) => IPV4_RE.test(v) || IPV6_RE.test(v),
+  port: (v) => {
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 1 && n <= 65535;
+  },
+  uuid: (v) => UUID_RE.test(v),
+};
 
 /**
  * Creates a strongly typed environment object based on the provided schema.
@@ -12,15 +37,13 @@ export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
 
   // 1. Iterate over each key in the schema and validate/parse the corresponding env variable
   for (const [key, config] of Object.entries(schema)) {
-    // Guard: choices and validate are mutually exclusive
-    if (
-      "choices" in config &&
-      config.choices &&
-      "validate" in config &&
-      config.validate
-    ) {
+    // Guard: choices, validate, and format are mutually exclusive
+    const hasChoices = "choices" in config && config.choices;
+    const hasValidate = "validate" in config && config.validate;
+    const hasFormat = "format" in config && config.format;
+    if ([hasChoices, hasValidate, hasFormat].filter(Boolean).length > 1) {
       validationErrors.push(
-        `❌ '${key}': 'choices' and 'validate' are mutually exclusive — use one or the other.`,
+        `❌ '${key}': 'choices', 'validate', and 'format' are mutually exclusive — use only one.`,
       );
       continue;
     }
@@ -63,7 +86,17 @@ export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
       parsedEnv[key] = rawValue;
     }
 
-    // 4. Check choices constraint
+    // 4. Check format constraint
+    if ("format" in config && config.format && parsedEnv[key] !== undefined) {
+      const formatFn = FORMAT_VALIDATORS[config.format];
+      if (!formatFn(String(parsedEnv[key]))) {
+        validationErrors.push(
+          `\u274c '${key}': Value '${parsedEnv[key]}' does not match format '${config.format}'.`,
+        );
+      }
+    }
+
+    // 5. Check choices constraint
     if (config.choices && parsedEnv[key] !== undefined) {
       if (!config.choices.includes(parsedEnv[key]!)) {
         validationErrors.push(
