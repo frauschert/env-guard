@@ -67,12 +67,13 @@ export function createEnv<S extends EnvSchema>(
       continue;
     }
 
-    const rawValue = process.env[key];
+    const envKey = options?.prefix ? `${options.prefix}${key}` : key;
+    const rawValue = process.env[envKey];
 
     // 2. Check if the variable is required but missing
     if (config.required && rawValue === undefined) {
       validationErrors.push(
-        `❌ '${key}': Is marked as required but was not found.`,
+        `❌ '${envKey}': Is marked as required but was not found.`,
       );
       continue;
     }

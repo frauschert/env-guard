@@ -468,4 +468,63 @@ describe("createEnv", () => {
       expect(env.SINGLE).toEqual(["only"]);
     });
   });
+
+  describe("prefix scoping", () => {
+    it("reads prefixed env variables", () => {
+      process.env.MYAPP_PORT = "3000";
+      const env = createEnv(
+        { PORT: { type: "number", required: true } },
+        { prefix: "MYAPP_" },
+      );
+      expect(env.PORT).toBe(3000);
+    });
+
+    it("reads multiple prefixed variables", () => {
+      process.env.SVC_HOST = "localhost";
+      process.env.SVC_PORT = "8080";
+      const env = createEnv(
+        {
+          HOST: { type: "string", required: true },
+          PORT: { type: "number", required: true },
+        },
+        { prefix: "SVC_" },
+      );
+      expect(env.HOST).toBe("localhost");
+      expect(env.PORT).toBe(8080);
+    });
+
+    it("throws with prefixed key name when required var is missing", () => {
+      delete process.env.MYAPP_SECRET;
+      expect(() =>
+        createEnv(
+          { SECRET: { type: "string", required: true } },
+          { prefix: "MYAPP_" },
+        ),
+      ).toThrow("MYAPP_SECRET");
+    });
+
+    it("uses default when prefixed variable is missing", () => {
+      delete process.env.APP_DEBUG;
+      const env = createEnv(
+        { DEBUG: { type: "boolean", default: false } },
+        { prefix: "APP_" },
+      );
+      expect(env.DEBUG).toBe(false);
+    });
+
+    it("works with array type", () => {
+      process.env.APP_ORIGINS = "a.com,b.com";
+      const env = createEnv(
+        { ORIGINS: { type: "array", itemType: "string", required: true } },
+        { prefix: "APP_" },
+      );
+      expect(env.ORIGINS).toEqual(["a.com", "b.com"]);
+    });
+
+    it("does not add prefix when prefix option is not set", () => {
+      process.env.PORT = "4000";
+      const env = createEnv({ PORT: { type: "number", required: true } });
+      expect(env.PORT).toBe(4000);
+    });
+  });
 });

@@ -13,6 +13,7 @@ Strongly typed, fail-fast environment variable validation for Node.js.
 - **Format presets** — built-in validators for `url`, `email`, `ip`, `port`, `uuid`
 - **Array / list type** — parse comma-separated values into typed arrays
 - **`.env` file loading** — built-in support for `.env`, `.env.local`, `.env.{NODE_ENV}` with zero dependencies
+- **Prefix scoping** — scope variables by prefix for libraries or microservices
 
 ## Installation
 
@@ -194,6 +195,25 @@ Default file resolution order (when `envFiles: true`):
 1. `.env` — base defaults
 2. `.env.{NODE_ENV}` — environment-specific overrides (only if `NODE_ENV` is set)
 3. `.env.local` — local machine overrides (typically git-ignored)
+
+### Prefix Scoping
+
+Scope environment variables by prefix, useful for libraries or microservices that share an environment:
+
+```ts
+const env = createEnv(
+  {
+    PORT: { type: "number", required: true }, // reads MYAPP_PORT
+    DB_HOST: { type: "string", required: true }, // reads MYAPP_DB_HOST
+  },
+  { prefix: "MYAPP_" },
+);
+
+// env.PORT   → value of process.env.MYAPP_PORT
+// env.DB_HOST → value of process.env.MYAPP_DB_HOST
+```
+
+The schema keys stay short and clean — the prefix is only used when looking up `process.env`. Error messages include the full prefixed name for easy debugging.
 
 ## License
 

@@ -79,4 +79,6 @@ export type InferEnv<S extends EnvSchema> = {
 export interface EnvOptions {
   /** Load `.env` files before validation. Defaults to `false`. */
   envFiles?: boolean | string[];
+  /** Prefix to prepend when reading each env variable (e.g. `"MYAPP_"`). */
+  prefix?: string;
 }
