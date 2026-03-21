@@ -1,12 +1,30 @@
 export type EnvDataType = "string" | "number" | "boolean";
 
-export interface EnvVarConfig {
+interface EnvVarConfigBase {
   type: EnvDataType;
   required?: boolean;
   default?: string | number | boolean;
-  validate?: (value: string | number | boolean) => boolean;
-  choices?: readonly (string | number | boolean)[];
 }
+
+interface EnvVarConfigWithValidate extends EnvVarConfigBase {
+  validate: (value: string | number | boolean) => boolean;
+  choices?: never;
+}
+
+interface EnvVarConfigWithChoices extends EnvVarConfigBase {
+  choices: readonly (string | number | boolean)[];
+  validate?: never;
+}
+
+interface EnvVarConfigPlain extends EnvVarConfigBase {
+  validate?: never;
+  choices?: never;
+}
+
+export type EnvVarConfig =
+  | EnvVarConfigWithValidate
+  | EnvVarConfigWithChoices
+  | EnvVarConfigPlain;
 
 export type EnvSchema = Record<string, EnvVarConfig>;
 

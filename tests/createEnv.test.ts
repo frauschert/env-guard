@@ -237,4 +237,21 @@ describe("createEnv", () => {
       expect(env.MODE).toBeUndefined();
     });
   });
+
+  describe("choices and validate mutual exclusivity", () => {
+    it("throws when both choices and validate are provided", () => {
+      process.env.PORT = "3000";
+      expect(() =>
+        createEnv({
+          // @ts-expect-error — intentionally testing runtime guard
+          PORT: {
+            type: "number",
+            required: true,
+            choices: [3000, 8080] as const,
+            validate: (v) => (v as number) > 0,
+          },
+        }),
+      ).toThrow("mutually exclusive");
+    });
+  });
 });

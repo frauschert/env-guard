@@ -12,6 +12,19 @@ export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
 
   // 1. Iterate over each key in the schema and validate/parse the corresponding env variable
   for (const [key, config] of Object.entries(schema)) {
+    // Guard: choices and validate are mutually exclusive
+    if (
+      "choices" in config &&
+      config.choices &&
+      "validate" in config &&
+      config.validate
+    ) {
+      validationErrors.push(
+        `❌ '${key}': 'choices' and 'validate' are mutually exclusive — use one or the other.`,
+      );
+      continue;
+    }
+
     const rawValue = process.env[key];
 
     // 2. Check if the variable is required but missing
