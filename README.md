@@ -11,6 +11,7 @@ Strongly typed, fail-fast environment variable validation for Node.js.
 - **Custom validators** — supply a `validate` function for domain-specific checks
 - **Enum / union types** — restrict values to a fixed set with `choices`
 - **Format presets** — built-in validators for `url`, `email`, `ip`, `port`, `uuid`
+- **Array / list type** — parse comma-separated values into typed arrays
 
 ## Installation
 
@@ -54,6 +55,16 @@ If a required variable is missing or a value doesn't match its declared type, `c
 | `choices`  | `readonly (string \| number \| boolean)[]`     | Fixed set of allowed values (exclusive with `validate`/`format`)         |
 | `validate` | `(value) => boolean`                           | Custom validation function (exclusive with `choices`/`format`)           |
 | `format`   | `"url" \| "email" \| "ip" \| "port" \| "uuid"` | Built-in format preset for strings (exclusive with `choices`/`validate`) |
+
+For array variables, use a different schema shape:
+
+| Option      | Type                                | Description                         |
+| ----------- | ----------------------------------- | ----------------------------------- |
+| `type`      | `"array"`                           | Declares the variable as an array   |
+| `itemType`  | `"string" \| "number" \| "boolean"` | The type of each element            |
+| `separator` | `string`                            | Delimiter (defaults to `","`)       |
+| `required`  | `boolean`                           | Fail if the variable is missing     |
+| `default`   | `string[]`                          | Fallback when the variable is unset |
 
 ### Custom Validators
 
@@ -132,6 +143,33 @@ If the value doesn't match:
 ❌ 'API_URL': Value 'not-a-url' does not match format 'url'.
 ```
 
+### Array / List Type
+
+Parse comma-separated (or custom-delimited) environment variables into typed arrays:
+
+```ts
+const env = createEnv({
+  ALLOWED_ORIGINS: { type: "array", itemType: "string", separator: "," },
+  PORTS: { type: "array", itemType: "number", required: true },
+  FLAGS: { type: "array", itemType: "boolean" },
+});
+
+// ALLOWED_ORIGINS="a.com,b.com" → ["a.com", "b.com"]
+// PORTS="3000,8080"             → [3000, 8080]
+// FLAGS="true,false,1"          → [true, false, true]
+```
+
+- `separator` defaults to `","` if omitted
+- Whitespace around items is trimmed automatically
+- Each item is validated against `itemType` — invalid items produce an error:
+
+```
+❌ 'PORTS': Array item 'abc' is not a valid number.
+```
+
+```
+
 ## License
 
 MIT
+```

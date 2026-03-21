@@ -366,4 +366,106 @@ describe("createEnv", () => {
       expect(env.OPT_URL).toBeUndefined();
     });
   });
+
+  describe("array type", () => {
+    it("parses comma-separated strings", () => {
+      process.env.ORIGINS = "a.com,b.com,c.com";
+      const env = createEnv({
+        ORIGINS: { type: "array", itemType: "string", required: true },
+      });
+      expect(env.ORIGINS).toEqual(["a.com", "b.com", "c.com"]);
+    });
+
+    it("trims whitespace around items", () => {
+      process.env.ORIGINS = "a.com , b.com , c.com";
+      const env = createEnv({
+        ORIGINS: { type: "array", itemType: "string", required: true },
+      });
+      expect(env.ORIGINS).toEqual(["a.com", "b.com", "c.com"]);
+    });
+
+    it("uses custom separator", () => {
+      process.env.ITEMS = "one|two|three";
+      const env = createEnv({
+        ITEMS: {
+          type: "array",
+          itemType: "string",
+          separator: "|",
+          required: true,
+        },
+      });
+      expect(env.ITEMS).toEqual(["one", "two", "three"]);
+    });
+
+    it("parses number arrays", () => {
+      process.env.PORTS = "3000,8080,9090";
+      const env = createEnv({
+        PORTS: { type: "array", itemType: "number", required: true },
+      });
+      expect(env.PORTS).toEqual([3000, 8080, 9090]);
+    });
+
+    it("throws on invalid number in array", () => {
+      process.env.PORTS = "3000,abc,9090";
+      expect(() =>
+        createEnv({
+          PORTS: { type: "array", itemType: "number", required: true },
+        }),
+      ).toThrow("Array item 'abc' is not a valid number");
+    });
+
+    it("parses boolean arrays", () => {
+      process.env.FLAGS = "true,false,1,0";
+      const env = createEnv({
+        FLAGS: { type: "array", itemType: "boolean", required: true },
+      });
+      expect(env.FLAGS).toEqual([true, false, true, false]);
+    });
+
+    it("throws on invalid boolean in array", () => {
+      process.env.FLAGS = "true,maybe";
+      expect(() =>
+        createEnv({
+          FLAGS: { type: "array", itemType: "boolean", required: true },
+        }),
+      ).toThrow("Array item 'maybe' is not a valid boolean");
+    });
+
+    it("throws on missing required array", () => {
+      delete process.env.MISSING_ARR;
+      expect(() =>
+        createEnv({
+          MISSING_ARR: { type: "array", itemType: "string", required: true },
+        }),
+      ).toThrow("MISSING_ARR");
+    });
+
+    it("returns undefined for optional missing array", () => {
+      delete process.env.OPT_ARR;
+      const env = createEnv({
+        OPT_ARR: { type: "array", itemType: "string" },
+      });
+      expect(env.OPT_ARR).toBeUndefined();
+    });
+
+    it("uses default for missing array", () => {
+      delete process.env.DEF_ARR;
+      const env = createEnv({
+        DEF_ARR: {
+          type: "array",
+          itemType: "string",
+          default: ["x", "y"],
+        },
+      });
+      expect(env.DEF_ARR).toEqual(["x", "y"]);
+    });
+
+    it("handles single-element array", () => {
+      process.env.SINGLE = "only";
+      const env = createEnv({
+        SINGLE: { type: "array", itemType: "string", required: true },
+      });
+      expect(env.SINGLE).toEqual(["only"]);
+    });
+  });
 });

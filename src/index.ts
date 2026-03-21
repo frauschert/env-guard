@@ -32,7 +32,10 @@ const FORMAT_VALIDATORS: Record<EnvFormat, (value: string) => boolean> = {
  * @throws Error if required variables are missing or have invalid values.
  */
 export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
-  const parsedEnv: Record<string, string | number | boolean | undefined> = {};
+  const parsedEnv: Record<
+    string,
+    string | number | boolean | (string | number | boolean)[] | undefined
+  > = {};
   const validationErrors: string[] = [];
 
   // 1. Iterate over each key in the schema and validate/parse the corresponding env variable
@@ -55,6 +58,52 @@ export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
       validationErrors.push(
         `❌ '${key}': Is marked as required but was not found.`,
       );
+      continue;
+    }
+
+    // Handle array type separately
+    if (config.type === "array") {
+      if (rawValue === undefined) {
+        parsedEnv[key] =
+          config.default !== undefined ? config.default : undefined;
+        continue;
+      }
+      const separator = config.separator ?? ",";
+      const items = rawValue.split(separator).map((s) => s.trim());
+      const parsed: (string | number | boolean)[] = [];
+      let hasError = false;
+
+      for (const item of items) {
+        if (config.itemType === "number") {
+          const n = Number(item);
+          if (Number.isNaN(n)) {
+            validationErrors.push(
+              `❌ '${key}': Array item '${item}' is not a valid number.`,
+            );
+            hasError = true;
+          } else {
+            parsed.push(n);
+          }
+        } else if (config.itemType === "boolean") {
+          const lower = item.toLowerCase();
+          if (lower === "true" || lower === "1") {
+            parsed.push(true);
+          } else if (lower === "false" || lower === "0") {
+            parsed.push(false);
+          } else {
+            validationErrors.push(
+              `❌ '${key}': Array item '${item}' is not a valid boolean.`,
+            );
+            hasError = true;
+          }
+        } else {
+          parsed.push(item);
+        }
+      }
+
+      if (!hasError) {
+        parsedEnv[key] = parsed;
+      }
       continue;
     }
 
@@ -98,7 +147,9 @@ export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
 
     // 5. Check choices constraint
     if (config.choices && parsedEnv[key] !== undefined) {
-      if (!config.choices.includes(parsedEnv[key]!)) {
+      if (
+        !config.choices.includes(parsedEnv[key] as string | number | boolean)
+      ) {
         validationErrors.push(
           `❌ '${key}': Value '${parsedEnv[key]}' is not in allowed choices [${config.choices.map((c) => `'${c}'`).join(", ")}].`,
         );
@@ -107,7 +158,7 @@ export function createEnv<S extends EnvSchema>(schema: S): InferEnv<S> {
 
     // 5. Run custom validate function if provided
     if (config.validate && parsedEnv[key] !== undefined) {
-      if (!config.validate(parsedEnv[key]!)) {
+      if (!config.validate(parsedEnv[key] as string | number | boolean)) {
         validationErrors.push(
           `❌ '${key}': Custom validation failed for value '${parsedEnv[key]}'.`,
         );

@@ -1,5 +1,7 @@
 export type EnvDataType = "string" | "number" | "boolean";
 
+export type EnvArrayItemType = "string" | "number" | "boolean";
+
 export type EnvFormat = "url" | "email" | "ip" | "port" | "uuid";
 
 interface EnvVarConfigBase {
@@ -33,16 +35,32 @@ interface EnvVarConfigPlain extends EnvVarConfigBase {
   format?: never;
 }
 
+export interface EnvArrayConfig {
+  type: "array";
+  itemType: EnvArrayItemType;
+  separator?: string;
+  required?: boolean;
+  default?: string[];
+}
+
 export type EnvVarConfig =
   | EnvVarConfigWithValidate
   | EnvVarConfigWithChoices
   | EnvVarConfigWithFormat
-  | EnvVarConfigPlain;
+  | EnvVarConfigPlain
+  | EnvArrayConfig;
 
 export type EnvSchema = Record<string, EnvVarConfig>;
 
-type InferDataType<T extends EnvVarConfig> =
-  T["choices"] extends readonly (infer C)[]
+type InferArrayItemType<T extends EnvArrayItemType> = T extends "number"
+  ? number
+  : T extends "boolean"
+    ? boolean
+    : string;
+
+type InferDataType<T extends EnvVarConfig> = T extends EnvArrayConfig
+  ? InferArrayItemType<T["itemType"]>[]
+  : T extends { choices: readonly (infer C)[] }
     ? C
     : T["type"] extends "number"
       ? number
