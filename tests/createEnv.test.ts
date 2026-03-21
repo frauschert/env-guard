@@ -584,4 +584,129 @@ describe("createEnv", () => {
       ).toThrow("Custom:");
     });
   });
+
+  describe("describe field", () => {
+    it("includes description in required-but-missing error", () => {
+      expect(() =>
+        createEnv({
+          DB_URL: {
+            type: "string",
+            required: true,
+            describe: "Primary database connection string",
+          },
+        }),
+      ).toThrow("(Primary database connection string)");
+    });
+
+    it("includes description in type mismatch error", () => {
+      process.env.PORT = "abc";
+      expect(() =>
+        createEnv({
+          PORT: {
+            type: "number",
+            required: true,
+            describe: "Server port",
+          },
+        }),
+      ).toThrow("'PORT' (Server port): Expected 'number'");
+      delete process.env.PORT;
+    });
+
+    it("includes description in choices error", () => {
+      process.env.MODE = "invalid";
+      expect(() =>
+        createEnv({
+          MODE: {
+            type: "string",
+            required: true,
+            choices: ["a", "b"] as const,
+            describe: "Application mode",
+          },
+        }),
+      ).toThrow("(Application mode)");
+      delete process.env.MODE;
+    });
+
+    it("includes description in validate error", () => {
+      process.env.VAL = "99999";
+      expect(() =>
+        createEnv({
+          VAL: {
+            type: "number",
+            required: true,
+            validate: (v) => (v as number) <= 100,
+            describe: "Must be ≤ 100",
+          },
+        }),
+      ).toThrow("(Must be ≤ 100)");
+      delete process.env.VAL;
+    });
+
+    it("includes description in format error", () => {
+      process.env.URL = "not-a-url";
+      expect(() =>
+        createEnv({
+          URL: {
+            type: "string",
+            format: "url",
+            required: true,
+            describe: "API endpoint URL",
+          },
+        }),
+      ).toThrow("(API endpoint URL)");
+      delete process.env.URL;
+    });
+
+    it("includes description in boolean type error", () => {
+      process.env.FLAG = "maybe";
+      expect(() =>
+        createEnv({
+          FLAG: {
+            type: "boolean",
+            required: true,
+            describe: "Feature flag toggle",
+          },
+        }),
+      ).toThrow("(Feature flag toggle)");
+      delete process.env.FLAG;
+    });
+
+    it("includes description in array item error", () => {
+      process.env.NUMS = "1,abc,3";
+      expect(() =>
+        createEnv({
+          NUMS: {
+            type: "array",
+            itemType: "number",
+            required: true,
+            describe: "List of port numbers",
+          },
+        }),
+      ).toThrow("(List of port numbers)");
+      delete process.env.NUMS;
+    });
+
+    it("does not alter error message when describe is omitted", () => {
+      expect(() =>
+        createEnv({
+          MISSING: { type: "string", required: true },
+        }),
+      ).toThrow("❌ 'MISSING': Is marked as required");
+    });
+
+    it("works with prefix and describe together", () => {
+      expect(() =>
+        createEnv(
+          {
+            PORT: {
+              type: "number",
+              required: true,
+              describe: "HTTP port",
+            },
+          },
+          { prefix: "APP_" },
+        ),
+      ).toThrow("'APP_PORT' (HTTP port)");
+    });
+  });
 });

@@ -63,13 +63,16 @@ export function createEnv<S extends EnvSchema>(
 
   // 1. Iterate over each key in the schema and validate/parse the corresponding env variable
   for (const [key, config] of Object.entries(schema)) {
+    // Build description suffix for error messages
+    const desc = config.describe ? ` (${config.describe})` : "";
+
     // Guard: choices, validate, and format are mutually exclusive
     const hasChoices = "choices" in config && config.choices;
     const hasValidate = "validate" in config && config.validate;
     const hasFormat = "format" in config && config.format;
     if ([hasChoices, hasValidate, hasFormat].filter(Boolean).length > 1) {
       validationErrors.push(
-        `❌ '${key}': 'choices', 'validate', and 'format' are mutually exclusive — use only one.`,
+        `❌ '${key}'${desc}: 'choices', 'validate', and 'format' are mutually exclusive — use only one.`,
       );
       continue;
     }
@@ -80,7 +83,7 @@ export function createEnv<S extends EnvSchema>(
     // 2. Check if the variable is required but missing
     if (config.required && rawValue === undefined) {
       validationErrors.push(
-        `❌ '${envKey}': Is marked as required but was not found.`,
+        `❌ '${envKey}'${desc}: Is marked as required but was not found.`,
       );
       continue;
     }
@@ -102,7 +105,7 @@ export function createEnv<S extends EnvSchema>(
           const n = Number(item);
           if (Number.isNaN(n)) {
             validationErrors.push(
-              `❌ '${key}': Array item '${item}' is not a valid number.`,
+              `❌ '${key}'${desc}: Array item '${item}' is not a valid number.`,
             );
             hasError = true;
           } else {
@@ -116,7 +119,7 @@ export function createEnv<S extends EnvSchema>(
             parsed.push(false);
           } else {
             validationErrors.push(
-              `❌ '${key}': Array item '${item}' is not a valid boolean.`,
+              `❌ '${key}'${desc}: Array item '${item}' is not a valid boolean.`,
             );
             hasError = true;
           }
@@ -138,7 +141,7 @@ export function createEnv<S extends EnvSchema>(
       const parsedNumber = Number(rawValue);
       if (Number.isNaN(parsedNumber)) {
         validationErrors.push(
-          `❌ '${key}': Expected 'number', but got '${rawValue}'.`,
+          `❌ '${key}'${desc}: Expected 'number', but got '${rawValue}'.`,
         );
       } else {
         parsedEnv[key] = parsedNumber;
@@ -151,7 +154,7 @@ export function createEnv<S extends EnvSchema>(
         parsedEnv[key] = false;
       } else {
         validationErrors.push(
-          `❌ '${key}': Expected 'boolean' (true/false/1/0), but got '${rawValue}'.`,
+          `❌ '${key}'${desc}: Expected 'boolean' (true/false/1/0), but got '${rawValue}'.`,
         );
       }
     } else {
@@ -164,7 +167,7 @@ export function createEnv<S extends EnvSchema>(
       const formatFn = FORMAT_VALIDATORS[config.format];
       if (!formatFn(String(parsedEnv[key]))) {
         validationErrors.push(
-          `\u274c '${key}': Value '${parsedEnv[key]}' does not match format '${config.format}'.`,
+          `\u274c '${key}'${desc}: Value '${parsedEnv[key]}' does not match format '${config.format}'.`,
         );
       }
     }
@@ -175,7 +178,7 @@ export function createEnv<S extends EnvSchema>(
         !config.choices.includes(parsedEnv[key] as string | number | boolean)
       ) {
         validationErrors.push(
-          `❌ '${key}': Value '${parsedEnv[key]}' is not in allowed choices [${config.choices.map((c) => `'${c}'`).join(", ")}].`,
+          `❌ '${key}'${desc}: Value '${parsedEnv[key]}' is not in allowed choices [${config.choices.map((c) => `'${c}'`).join(", ")}].`,
         );
       }
     }
@@ -184,7 +187,7 @@ export function createEnv<S extends EnvSchema>(
     if (config.validate && parsedEnv[key] !== undefined) {
       if (!config.validate(parsedEnv[key] as string | number | boolean)) {
         validationErrors.push(
-          `❌ '${key}': Custom validation failed for value '${parsedEnv[key]}'.`,
+          `❌ '${key}'${desc}: Custom validation failed for value '${parsedEnv[key]}'.`,
         );
       }
     }

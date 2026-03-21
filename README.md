@@ -14,6 +14,7 @@ Strongly typed, fail-fast environment variable validation for Node.js.
 - **Array / list type** — parse comma-separated values into typed arrays
 - **`.env` file loading** — built-in support for `.env`, `.env.local`, `.env.{NODE_ENV}` with zero dependencies
 - **Prefix scoping** — scope variables by prefix for libraries or microservices
+- **`describe` field** — optional human-readable description per variable, included in error messages
 - **Framework adapters** — first-class integrations for Next.js, Vite, Astro, SvelteKit, and Remix
 
 ## Installation
@@ -58,16 +59,18 @@ If a required variable is missing or a value doesn't match its declared type, `c
 | `choices`  | `readonly (string \| number \| boolean)[]`     | Fixed set of allowed values (exclusive with `validate`/`format`)         |
 | `validate` | `(value) => boolean`                           | Custom validation function (exclusive with `choices`/`format`)           |
 | `format`   | `"url" \| "email" \| "ip" \| "port" \| "uuid"` | Built-in format preset for strings (exclusive with `choices`/`validate`) |
+| `describe` | `string`                                       | Human-readable description, shown in error messages                      |
 
 For array variables, use a different schema shape:
 
-| Option      | Type                                | Description                         |
-| ----------- | ----------------------------------- | ----------------------------------- |
-| `type`      | `"array"`                           | Declares the variable as an array   |
-| `itemType`  | `"string" \| "number" \| "boolean"` | The type of each element            |
-| `separator` | `string`                            | Delimiter (defaults to `","`)       |
-| `required`  | `boolean`                           | Fail if the variable is missing     |
-| `default`   | `string[]`                          | Fallback when the variable is unset |
+| Option      | Type                                | Description                                         |
+| ----------- | ----------------------------------- | --------------------------------------------------- |
+| `type`      | `"array"`                           | Declares the variable as an array                   |
+| `itemType`  | `"string" \| "number" \| "boolean"` | The type of each element                            |
+| `separator` | `string`                            | Delimiter (defaults to `","`)                       |
+| `required`  | `boolean`                           | Fail if the variable is missing                     |
+| `default`   | `string[]`                          | Fallback when the variable is unset                 |
+| `describe`  | `string`                            | Human-readable description, shown in error messages |
 
 ### Custom Validators
 
@@ -231,6 +234,32 @@ const env = createEnv(schema, {
 ```
 
 If `onError` is not provided, `createEnv` throws an `Error` with the default formatted message.
+
+### `describe` Field
+
+Add a human-readable description to any variable. The description is included in error messages, making them easier to understand — especially in large schemas:
+
+```ts
+const env = createEnv({
+  DATABASE_URL: {
+    type: "string",
+    required: true,
+    describe: "PostgreSQL connection string for the primary database",
+  },
+  PORT: {
+    type: "number",
+    required: true,
+    describe: "The port the server listens on",
+  },
+});
+```
+
+When validation fails, the description appears after the variable name:
+
+```
+❌ 'DATABASE_URL' (PostgreSQL connection string for the primary database): Is marked as required but was not found.
+❌ 'PORT' (The port the server listens on): Expected 'number', but got 'abc'.
+```
 
 ### Framework Adapters
 

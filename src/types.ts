@@ -8,6 +8,8 @@ interface EnvVarConfigBase {
   type: EnvDataType;
   required?: boolean;
   default?: string | number | boolean;
+  /** Human-readable description. Included in error messages and useful for generated docs. */
+  describe?: string;
 }
 
 interface EnvVarConfigWithValidate extends EnvVarConfigBase {
@@ -41,6 +43,8 @@ export interface EnvArrayConfig {
   separator?: string;
   required?: boolean;
   default?: string[];
+  /** Human-readable description. Included in error messages and useful for generated docs. */
+  describe?: string;
 }
 
 export type EnvVarConfig =
