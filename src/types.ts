@@ -81,4 +81,6 @@ export interface EnvOptions {
   envFiles?: boolean | string[];
   /** Prefix to prepend when reading each env variable (e.g. `"MYAPP_"`). */
   prefix?: string;
+  /** Custom error handler. Receives the array of error strings. If provided, replaces the default throw behaviour — you must throw or exit yourself if desired. */
+  onError?: (errors: string[]) => void;
 }

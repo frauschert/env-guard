@@ -215,6 +215,22 @@ const env = createEnv(
 
 The schema keys stay short and clean — the prefix is only used when looking up `process.env`. Error messages include the full prefixed name for easy debugging.
 
+### Custom Error Formatter
+
+Provide your own error handling callback instead of the built-in emoji format. When `onError` is set, env-guard calls it with the array of error strings instead of throwing — you decide how to report or throw:
+
+```ts
+const env = createEnv(schema, {
+  onError: (errors) => {
+    console.error("Config errors:");
+    errors.forEach((e) => console.error(` - ${e}`));
+    process.exit(1);
+  },
+});
+```
+
+If `onError` is not provided, `createEnv` throws an `Error` with the default formatted message.
+
 ## License
 
 MIT

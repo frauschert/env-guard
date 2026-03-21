@@ -183,12 +183,16 @@ export function createEnv<S extends EnvSchema>(
     }
   }
 
-  // 5. Fail-Fast: If errors are found, abort the app IMMEDIATELY!
+  // Fail-Fast: If errors are found, abort the app IMMEDIATELY!
   if (validationErrors.length > 0) {
-    const errorMessage =
-      `\n🚨 Env-Guard validation errors on app start:\n` +
-      validationErrors.join("\n");
-    throw new Error(errorMessage);
+    if (options?.onError) {
+      options.onError(validationErrors);
+    } else {
+      const errorMessage =
+        `\n\ud83d\udea8 Env-Guard validation errors on app start:\n` +
+        validationErrors.join("\n");
+      throw new Error(errorMessage);
+    }
   }
 
   // Everything successful, return the clean object with type safety

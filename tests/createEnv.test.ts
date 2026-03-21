@@ -527,4 +527,61 @@ describe("createEnv", () => {
       expect(env.PORT).toBe(4000);
     });
   });
+
+  describe("custom error formatter (onError)", () => {
+    it("calls onError with error array instead of throwing", () => {
+      const onError = vi.fn();
+      createEnv({ MISSING: { type: "string", required: true } }, { onError });
+      expect(onError).toHaveBeenCalledOnce();
+      expect(onError).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.stringContaining("MISSING")]),
+      );
+    });
+
+    it("does not throw when onError is provided", () => {
+      expect(() =>
+        createEnv(
+          { MISSING: { type: "string", required: true } },
+          { onError: () => {} },
+        ),
+      ).not.toThrow();
+    });
+
+    it("receives multiple errors", () => {
+      const errors: string[] = [];
+      createEnv(
+        {
+          A: { type: "string", required: true },
+          B: { type: "number", required: true },
+        },
+        {
+          onError: (e) => {
+            errors.push(...e);
+          },
+        },
+      );
+      expect(errors.length).toBe(2);
+      expect(errors[0]).toContain("A");
+      expect(errors[1]).toContain("B");
+    });
+
+    it("still throws with default format when onError is not set", () => {
+      expect(() =>
+        createEnv({ X: { type: "string", required: true } }),
+      ).toThrow("Env-Guard validation errors");
+    });
+
+    it("onError can re-throw with custom formatting", () => {
+      expect(() =>
+        createEnv(
+          { MISSING: { type: "string", required: true } },
+          {
+            onError: (errors) => {
+              throw new Error(`Custom: ${errors.join("; ")}`);
+            },
+          },
+        ),
+      ).toThrow("Custom:");
+    });
+  });
 });
