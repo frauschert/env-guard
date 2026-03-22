@@ -5,7 +5,12 @@ export default defineConfig({
   description:
     "Strongly typed, fail-fast environment variable validation for Node.js",
   base: "/env-guard/",
-  head: [["link", { rel: "icon", type: "image/svg+xml", href: "/env-guard/logo.svg" }]],
+  head: [
+    [
+      "link",
+      { rel: "icon", type: "image/svg+xml", href: "/env-guard/logo.svg" },
+    ],
+  ],
   themeConfig: {
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
