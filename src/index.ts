@@ -203,6 +203,19 @@ function handleErrors(errors: string[], onError?: (errors: string[]) => void) {
   }
 }
 
+function applyStrict<T extends object>(obj: T, schemaKeys: Set<string>): T {
+  return new Proxy(obj, {
+    get(target, prop, receiver) {
+      if (typeof prop === "string" && !schemaKeys.has(prop)) {
+        throw new Error(
+          `[env-guard] Attempted to access unknown env variable '${prop}'.`,
+        );
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}
+
 /**
  * Creates a strongly typed environment object based on the provided schema.
  * @param schema The schema defining the expected environment variables and their types.
@@ -233,8 +246,23 @@ export function createEnv<S extends EnvSchema>(
   const { parsed, errors } = parseSchema(schema, options?.prefix);
   handleErrors(errors, options?.onError);
 
+  if (options?.freeze && options?.watch) {
+    throw new Error(
+      "[env-guard] 'freeze' and 'watch' cannot be used together — refresh() needs to mutate the object.",
+    );
+  }
+
+  const schemaKeys = new Set(Object.keys(schema));
+
   if (!options?.watch) {
-    return parsed as InferEnv<S>;
+    let result = parsed as InferEnv<S>;
+    if (options?.freeze) {
+      Object.freeze(result);
+    }
+    if (options?.strict) {
+      result = applyStrict(result, schemaKeys);
+    }
+    return result;
   }
 
   // Build a watchable env object with refresh() / on() / off()
@@ -282,6 +310,11 @@ export function createEnv<S extends EnvSchema>(
   Object.defineProperty(env, "on", { value: on, enumerable: false });
   Object.defineProperty(env, "off", { value: off, enumerable: false });
 
+  if (options?.strict) {
+    const watchKeys = new Set([...schemaKeys, "refresh", "on", "off"]);
+    return applyStrict(env, watchKeys) as WatchableEnv<S>;
+  }
+
   return env as WatchableEnv<S>;
 }
 
@@ -300,12 +333,12 @@ function createFrameworkEnv<C extends EnvSchema, S extends EnvSchema>(
     ...config.options,
     prefix: clientPrefix,
     onError: collectErrors,
-  });
+  } as EnvOptions);
 
   const server = createEnv(config.server, {
     ...config.options,
     onError: collectErrors,
-  });
+  } as EnvOptions);
 
   if (allErrors.length > 0) {
     if (config.options?.onError) {

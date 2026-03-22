@@ -18,6 +18,7 @@ Strongly typed, fail-fast environment variable validation for Node.js.
 - **Framework adapters** — first-class integrations for Next.js, Vite, Astro, SvelteKit, and Remix
 - **Runtime refresh** — re-read environment variables at runtime with optional change callbacks
 - **Secret masking** — mark variables as `sensitive` so values are redacted in errors and change events
+- **Frozen & strict output** — freeze the env object and/or throw on access to undefined keys
 
 ## Installation
 
@@ -396,6 +397,37 @@ env.on("change", (key, oldVal, newVal) => {
   // PORT 3000 8080
 });
 ```
+
+````
+
+### Frozen & Strict Output
+
+Prevent accidental mutations and catch typos at runtime:
+
+```ts
+const env = createEnv(
+  {
+    PORT: { type: "number", required: true },
+    HOST: { type: "string", default: "localhost" },
+  },
+  { freeze: true, strict: true },
+);
+
+// freeze: property assignments throw in strict mode
+env.PORT = 9999; // ❌ TypeError: Cannot assign to read only property
+
+// strict: accessing keys not in the schema throws
+env.PROT; // ❌ Error: Attempted to access unknown env variable 'PROT'
+````
+
+| Option   | Effect                                                          |
+| -------- | --------------------------------------------------------------- |
+| `freeze` | Calls `Object.freeze` on the result — mutations throw           |
+| `strict` | Wraps in a `Proxy` — accessing any key not in the schema throws |
+
+- `freeze` and `strict` can be used independently or together.
+- `freeze` cannot be combined with `watch` (refresh needs to mutate the object). Attempting both throws at creation time.
+- `strict` works with `watch` — `refresh()`, `on()`, and `off()` remain accessible.
 
 ## License
 

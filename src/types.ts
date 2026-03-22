@@ -84,16 +84,31 @@ export type InferEnv<S extends EnvSchema> = {
       : InferDataType<S[K]>;
 };
 
-export interface EnvOptions {
+interface EnvOptionsBase {
   /** Load `.env` files before validation. Defaults to `false`. */
   envFiles?: boolean | string[];
   /** Prefix to prepend when reading each env variable (e.g. `"MYAPP_"`). */
   prefix?: string;
   /** Custom error handler. Receives the array of error strings. If provided, replaces the default throw behaviour — you must throw or exit yourself if desired. */
   onError?: (errors: string[]) => void;
-  /** When `true`, the returned object supports `.refresh()` and `.on("change", …)` for runtime re-reading. */
-  watch?: boolean;
+  /** Wrap the returned object in a `Proxy` that throws when accessing keys not defined in the schema. */
+  strict?: boolean;
 }
+
+interface EnvOptionsWithWatch extends EnvOptionsBase {
+  /** When `true`, the returned object supports `.refresh()` and `.on("change", …)` for runtime re-reading. */
+  watch: true;
+  /** Cannot use `freeze` together with `watch` — refresh() needs to mutate the object. */
+  freeze?: never;
+}
+
+interface EnvOptionsNoWatch extends EnvOptionsBase {
+  watch?: false;
+  /** Freeze the returned object with `Object.freeze` so property mutations throw in strict mode. Cannot be combined with `watch`. */
+  freeze?: boolean;
+}
+
+export type EnvOptions = EnvOptionsWithWatch | EnvOptionsNoWatch;
 
 /** Callback fired by `WatchableEnv` when `refresh()` detects a value change. */
 export type ChangeListener<S extends EnvSchema = EnvSchema> = (

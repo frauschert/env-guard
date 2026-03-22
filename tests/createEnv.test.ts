@@ -1045,4 +1045,138 @@ describe("createEnv", () => {
       expect(changes).toEqual([{ oldVal: "old", newVal: "new" }]);
     });
   });
+
+  describe("freeze option", () => {
+    it("freezes the returned object", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv(
+        { HOST: { type: "string", required: true } },
+        { freeze: true },
+      );
+      expect(Object.isFrozen(env)).toBe(true);
+      delete process.env.HOST;
+    });
+
+    it("prevents property mutation in strict mode", () => {
+      process.env.PORT = "3000";
+      const env = createEnv(
+        { PORT: { type: "number", required: true } },
+        { freeze: true },
+      );
+      expect(() => {
+        (env as Record<string, unknown>).PORT = 9999;
+      }).toThrow();
+      expect(env.PORT).toBe(3000);
+      delete process.env.PORT;
+    });
+
+    it("prevents adding new properties", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv(
+        { HOST: { type: "string", required: true } },
+        { freeze: true },
+      );
+      expect(() => {
+        (env as Record<string, unknown>).NEW_PROP = "oops";
+      }).toThrow();
+      delete process.env.HOST;
+    });
+
+    it("throws when combined with watch", () => {
+      process.env.HOST = "localhost";
+      expect(() =>
+        // @ts-expect-error freeze + watch are mutually exclusive
+        createEnv(
+          { HOST: { type: "string", required: true } },
+          { freeze: true, watch: true },
+        ),
+      ).toThrow("'freeze' and 'watch' cannot be used together");
+      delete process.env.HOST;
+    });
+
+    it("is not frozen by default", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv({ HOST: { type: "string", required: true } });
+      expect(Object.isFrozen(env)).toBe(false);
+      delete process.env.HOST;
+    });
+  });
+
+  describe("strict option", () => {
+    it("throws on access to unknown keys", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv(
+        { HOST: { type: "string", required: true } },
+        { strict: true },
+      );
+      expect(env.HOST).toBe("localhost");
+      expect(() => {
+        void (env as Record<string, unknown>)["UNKNOWN_KEY"];
+      }).toThrow("unknown env variable 'UNKNOWN_KEY'");
+      delete process.env.HOST;
+    });
+
+    it("allows access to defined keys", () => {
+      process.env.HOST = "localhost";
+      process.env.PORT = "3000";
+      const env = createEnv(
+        {
+          HOST: { type: "string", required: true },
+          PORT: { type: "number", required: true },
+        },
+        { strict: true },
+      );
+      expect(env.HOST).toBe("localhost");
+      expect(env.PORT).toBe(3000);
+      delete process.env.HOST;
+      delete process.env.PORT;
+    });
+
+    it("allows access to undefined optional keys", () => {
+      const env = createEnv(
+        { DEBUG: { type: "boolean", default: false } },
+        { strict: true },
+      );
+      expect(env.DEBUG).toBe(false);
+    });
+
+    it("works together with freeze", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv(
+        { HOST: { type: "string", required: true } },
+        { strict: true, freeze: true },
+      );
+      expect(env.HOST).toBe("localhost");
+      expect(Object.isFrozen(env)).toBe(true);
+      expect(() => {
+        void (env as Record<string, unknown>)["NOPE"];
+      }).toThrow("unknown env variable");
+      delete process.env.HOST;
+    });
+
+    it("works together with watch", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv(
+        { HOST: { type: "string", required: true } },
+        { strict: true, watch: true },
+      );
+      expect(env.HOST).toBe("localhost");
+      expect(() => {
+        void (env as Record<string, unknown>)["NOPE"];
+      }).toThrow("unknown env variable");
+      // refresh/on/off should still be accessible
+      expect(typeof env.refresh).toBe("function");
+      expect(typeof env.on).toBe("function");
+      expect(typeof env.off).toBe("function");
+      delete process.env.HOST;
+    });
+
+    it("is not strict by default", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv({ HOST: { type: "string", required: true } });
+      // accessing unknown key returns undefined silently
+      expect((env as Record<string, unknown>)["NOPE"]).toBeUndefined();
+      delete process.env.HOST;
+    });
+  });
 });
