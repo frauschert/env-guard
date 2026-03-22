@@ -1339,4 +1339,192 @@ describe("createEnv", () => {
       delete process.env.TRIMMED;
     });
   });
+
+  describe("nested / grouped schemas", () => {
+    afterEach(() => {
+      delete process.env.DB_HOST;
+      delete process.env.DB_PORT;
+      delete process.env.CACHE_HOST;
+      delete process.env.CACHE_TTL;
+      delete process.env.API_KEY;
+      delete process.env.MYAPP_DB_HOST;
+      delete process.env.MYAPP_DB_PORT;
+    });
+
+    it("reads env vars with uppercased group prefix", () => {
+      process.env.DB_HOST = "localhost";
+      process.env.DB_PORT = "5432";
+      const env = createEnv({
+        db: {
+          HOST: { type: "string", required: true },
+          PORT: { type: "number", default: 5432 },
+        },
+      });
+      expect(env.db.HOST).toBe("localhost");
+      expect(env.db.PORT).toBe(5432);
+    });
+
+    it("mixes flat vars and groups", () => {
+      process.env.API_KEY = "secret123";
+      process.env.DB_HOST = "db.example.com";
+      process.env.DB_PORT = "3306";
+      const env = createEnv({
+        API_KEY: { type: "string", required: true },
+        db: {
+          HOST: { type: "string", required: true },
+          PORT: { type: "number", required: true },
+        },
+      });
+      expect(env.API_KEY).toBe("secret123");
+      expect(env.db.HOST).toBe("db.example.com");
+      expect(env.db.PORT).toBe(3306);
+    });
+
+    it("supports multiple groups", () => {
+      process.env.DB_HOST = "db-host";
+      process.env.CACHE_HOST = "cache-host";
+      process.env.CACHE_TTL = "60";
+      const env = createEnv({
+        db: {
+          HOST: { type: "string", required: true },
+        },
+        cache: {
+          HOST: { type: "string", required: true },
+          TTL: { type: "number", required: true },
+        },
+      });
+      expect(env.db.HOST).toBe("db-host");
+      expect(env.cache.HOST).toBe("cache-host");
+      expect(env.cache.TTL).toBe(60);
+    });
+
+    it("composes with the global prefix option", () => {
+      process.env.MYAPP_DB_HOST = "prefixed-host";
+      process.env.MYAPP_DB_PORT = "9999";
+      const env = createEnv(
+        {
+          db: {
+            HOST: { type: "string", required: true },
+            PORT: { type: "number", required: true },
+          },
+        },
+        { prefix: "MYAPP_" },
+      );
+      expect(env.db.HOST).toBe("prefixed-host");
+      expect(env.db.PORT).toBe(9999);
+    });
+
+    it("throws with correct prefixed key for missing required var in group", () => {
+      expect(() =>
+        createEnv({
+          db: {
+            HOST: { type: "string", required: true },
+          },
+        }),
+      ).toThrow("DB_HOST");
+    });
+
+    it("uses defaults for missing optional group vars", () => {
+      const env = createEnv({
+        db: {
+          HOST: { type: "string", default: "localhost" },
+          PORT: { type: "number", default: 5432 },
+        },
+      });
+      expect(env.db.HOST).toBe("localhost");
+      expect(env.db.PORT).toBe(5432);
+    });
+
+    it("works with watch and refresh", () => {
+      process.env.DB_HOST = "host-a";
+      const env = createEnv(
+        {
+          db: {
+            HOST: { type: "string", required: true },
+          },
+        },
+        { watch: true },
+      );
+      expect(env.db.HOST).toBe("host-a");
+
+      process.env.DB_HOST = "host-b";
+      env.refresh();
+      expect(env.db.HOST).toBe("host-b");
+    });
+
+    it("fires change listener for group key", () => {
+      process.env.DB_HOST = "old-host";
+      const listener = vi.fn();
+      const env = createEnv(
+        {
+          db: {
+            HOST: { type: "string", required: true },
+          },
+        },
+        { watch: true },
+      );
+      env.on("change", listener);
+
+      process.env.DB_HOST = "new-host";
+      env.refresh();
+
+      expect(listener).toHaveBeenCalledOnce();
+      expect(listener).toHaveBeenCalledWith(
+        "db",
+        expect.objectContaining({ HOST: "old-host" }),
+        expect.objectContaining({ HOST: "new-host" }),
+      );
+    });
+
+    it("deep-freezes group sub-objects with freeze option", () => {
+      process.env.DB_HOST = "localhost";
+      const env = createEnv(
+        {
+          db: {
+            HOST: { type: "string", required: true },
+          },
+        },
+        { freeze: true },
+      );
+      expect(Object.isFrozen(env)).toBe(true);
+      expect(Object.isFrozen(env.db)).toBe(true);
+    });
+
+    it("strict option allows group keys but rejects unknown top-level keys", () => {
+      process.env.DB_HOST = "localhost";
+      const env = createEnv(
+        {
+          db: {
+            HOST: { type: "string", required: true },
+          },
+        },
+        { strict: true },
+      );
+      expect(env.db.HOST).toBe("localhost");
+      expect(() => {
+        void (env as Record<string, unknown>)["UNKNOWN"];
+      }).toThrow("unknown env variable");
+    });
+
+    it("redacts group change listener values when any sub-key is sensitive", () => {
+      process.env.DB_HOST = "localhost";
+      process.env.DB_PORT = "5432";
+      const listener = vi.fn();
+      const env = createEnv(
+        {
+          db: {
+            HOST: { type: "string", required: true, sensitive: true },
+            PORT: { type: "number", required: true },
+          },
+        },
+        { watch: true },
+      );
+      env.on("change", listener);
+
+      process.env.DB_HOST = "new-host";
+      env.refresh();
+
+      expect(listener).toHaveBeenCalledWith("db", "****", "****");
+    });
+  });
 });

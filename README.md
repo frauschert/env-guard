@@ -471,6 +471,48 @@ const env = createEnv({
 - For `type: "array"`, `coerce` bypasses the default split-by-separator logic — you control the full parsing.
 - When the variable is missing, `coerce` is not called and `default` is used as normal.
 
+### Nested / Grouped Schemas
+
+Group related variables under a namespace for cleaner access. The group name is upper-cased and used as an env-var prefix:
+
+```ts
+import { createEnv } from "@frauschert/env-guard";
+
+// Reads DB_HOST, DB_PORT, CACHE_HOST, CACHE_TTL
+const env = createEnv({
+  db: {
+    HOST: { type: "string", required: true },
+    PORT: { type: "number", default: 5432 },
+  },
+  cache: {
+    HOST: { type: "string", required: true },
+    TTL: { type: "number", default: 300 },
+  },
+});
+
+env.db.HOST; // string
+env.db.PORT; // number
+env.cache.HOST; // string
+env.cache.TTL; // number
+```
+
+Flat variables and groups can be mixed freely:
+
+```ts
+const env = createEnv({
+  API_KEY: { type: "string", required: true }, // reads API_KEY
+  db: {
+    HOST: { type: "string", required: true }, // reads DB_HOST
+  },
+});
+```
+
+- The group name is converted to `UPPER_CASE_` and prepended to each key inside the group.
+- Composes with the global `prefix` option: `prefix: "MYAPP_"` + group `db` → reads `MYAPP_DB_HOST`.
+- All per-variable features (`choices`, `validate`, `format`, `coerce`, `sensitive`, `describe`, `default`) work inside groups.
+- `freeze` deep-freezes group sub-objects.
+- `watch` + `refresh()` detects changes within groups and fires the change listener with the group name as the key.
+
 ## License
 
 MIT

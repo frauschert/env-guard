@@ -62,7 +62,9 @@ export type EnvVarConfig =
   | EnvVarConfigPlain
   | EnvArrayConfig;
 
-export type EnvSchema = Record<string, EnvVarConfig>;
+export type EnvGroup = Record<string, EnvVarConfig>;
+
+export type EnvSchema = Record<string, EnvVarConfig | EnvGroup>;
 
 type InferArrayItemType<T extends EnvArrayItemType> = T extends "number"
   ? number
@@ -80,12 +82,22 @@ type InferDataType<T extends EnvVarConfig> = T extends EnvArrayConfig
         ? boolean
         : string;
 
+type InferEnvVar<V extends EnvVarConfig> = V["required"] extends true
+  ? InferDataType<V>
+  : V["default"] extends undefined
+    ? InferDataType<V> | undefined
+    : InferDataType<V>;
+
 export type InferEnv<S extends EnvSchema> = {
-  [K in keyof S]: S[K]["required"] extends true
-    ? InferDataType<S[K]>
-    : S[K]["default"] extends undefined
-      ? InferDataType<S[K]> | undefined
-      : InferDataType<S[K]>;
+  [K in keyof S]: S[K] extends EnvVarConfig
+    ? InferEnvVar<S[K]>
+    : S[K] extends EnvGroup
+      ? {
+          [GK in keyof S[K]]: S[K][GK] extends EnvVarConfig
+            ? InferEnvVar<S[K][GK]>
+            : never;
+        }
+      : never;
 };
 
 interface EnvOptionsBase {

@@ -2,6 +2,7 @@ import type {
   EnvFormat,
   EnvOptions,
   EnvSchema,
+  EnvVarConfig,
   FrameworkEnv,
   FrameworkEnvConfig,
   InferEnv,
@@ -13,6 +14,7 @@ import { defaultEnvFiles, loadEnvFiles } from "./env-file";
 export { loadEnvFiles, defaultEnvFiles } from "./env-file";
 export type {
   EnvOptions,
+  EnvGroup,
   FrameworkEnvConfig,
   FrameworkEnv,
   ChangeListener,
@@ -46,10 +48,7 @@ const FORMAT_VALIDATORS: Record<EnvFormat, (value: string) => boolean> = {
 
 const REDACTED = "****";
 
-type ParsedRecord = Record<
-  string,
-  string | number | boolean | (string | number | boolean)[] | undefined
->;
+type ParsedRecord = Record<string, unknown>;
 
 /**
  * Internal: parse + validate a schema against the current process.env.
@@ -62,7 +61,25 @@ function parseSchema(
   const parsedEnv: ParsedRecord = {};
   const validationErrors: string[] = [];
 
-  for (const [key, config] of Object.entries(schema)) {
+  for (const [key, entry] of Object.entries(schema)) {
+    // Handle nested group schemas
+    if (
+      !("type" in entry) ||
+      typeof (entry as Record<string, unknown>).type !== "string"
+    ) {
+      const groupPrefix = prefix
+        ? `${prefix}${key.toUpperCase()}_`
+        : `${key.toUpperCase()}_`;
+      const { parsed: groupParsed, errors: groupErrors } = parseSchema(
+        entry as EnvSchema,
+        groupPrefix,
+      );
+      parsedEnv[key] = groupParsed;
+      validationErrors.push(...groupErrors);
+      continue;
+    }
+
+    const config = entry as EnvVarConfig;
     const desc = config.describe ? ` (${config.describe})` : "";
     const isSensitive = "sensitive" in config && config.sensitive === true;
     const displayVal = (v: unknown) => (isSensitive ? REDACTED : `${v}`);
@@ -273,6 +290,11 @@ export function createEnv<S extends EnvSchema>(
   if (!options?.watch) {
     let result = parsed as InferEnv<S>;
     if (options?.freeze) {
+      for (const val of Object.values(result as Record<string, unknown>)) {
+        if (typeof val === "object" && val !== null && !Object.isFrozen(val)) {
+          Object.freeze(val);
+        }
+      }
       Object.freeze(result);
     }
     if (options?.strict) {
@@ -295,14 +317,26 @@ export function createEnv<S extends EnvSchema>(
     for (const key of Object.keys(schema)) {
       const oldVal = env[key];
       const newVal = next[key];
-      const changed =
-        Array.isArray(oldVal) || Array.isArray(newVal)
-          ? JSON.stringify(oldVal) !== JSON.stringify(newVal)
-          : oldVal !== newVal;
+      const isComplex =
+        (typeof oldVal === "object" && oldVal !== null) ||
+        (typeof newVal === "object" && newVal !== null);
+      const changed = isComplex
+        ? JSON.stringify(oldVal) !== JSON.stringify(newVal)
+        : oldVal !== newVal;
       if (changed) {
         env[key] = newVal;
-        const isSensitive =
-          "sensitive" in schema[key] && schema[key].sensitive === true;
+        const schemaEntry = schema[key];
+        const entryIsConfig =
+          "type" in schemaEntry &&
+          typeof (schemaEntry as Record<string, unknown>).type === "string";
+        const isSensitive = entryIsConfig
+          ? (schemaEntry as Record<string, unknown>).sensitive === true
+          : Object.values(schemaEntry).some(
+              (c) =>
+                typeof c === "object" &&
+                c !== null &&
+                (c as Record<string, unknown>).sensitive === true,
+            );
         for (const listener of listeners) {
           listener(
             key,
