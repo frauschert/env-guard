@@ -67,14 +67,15 @@ If a required variable is missing or a value doesn't match its declared type, `c
 
 For array variables, use a different schema shape:
 
-| Option      | Type                                | Description                                         |
-| ----------- | ----------------------------------- | --------------------------------------------------- | --- | ----------- | --------- | ---------------------------------------------------- |
-| `type`      | `"array"`                           | Declares the variable as an array                   |
-| `itemType`  | `"string" \| "number" \| "boolean"` | The type of each element                            |
-| `separator` | `string`                            | Delimiter (defaults to `","`)                       |
-| `required`  | `boolean`                           | Fail if the variable is missing                     |
-| `default`   | `string[]`                          | Fallback when the variable is unset                 |
-| `describe`  | `string`                            | Human-readable description, shown in error messages |     | `sensitive` | `boolean` | Redact the value in error messages and change events |
+| Option      | Type                                | Description                                          |
+| ----------- | ----------------------------------- | ---------------------------------------------------- |
+| `type`      | `"array"`                           | Declares the variable as an array                    |
+| `itemType`  | `"string" \| "number" \| "boolean"` | The type of each element                             |
+| `separator` | `string`                            | Delimiter (defaults to `","`)                        |
+| `required`  | `boolean`                           | Fail if the variable is missing                      |
+| `default`   | `string[]`                          | Fallback when the variable is unset                  |
+| `describe`  | `string`                            | Human-readable description, shown in error messages  |
+| `sensitive` | `boolean`                           | Redact the value in error messages and change events |
 
 ### Custom Validators
 
