@@ -5,11 +5,19 @@ import type {
   FrameworkEnv,
   FrameworkEnvConfig,
   InferEnv,
+  ChangeListener,
+  WatchableEnv,
 } from "./types";
 import { defaultEnvFiles, loadEnvFiles } from "./env-file";
 
 export { loadEnvFiles, defaultEnvFiles } from "./env-file";
-export type { EnvOptions, FrameworkEnvConfig, FrameworkEnv } from "./types";
+export type {
+  EnvOptions,
+  FrameworkEnvConfig,
+  FrameworkEnv,
+  ChangeListener,
+  WatchableEnv,
+} from "./types";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -36,37 +44,25 @@ const FORMAT_VALIDATORS: Record<EnvFormat, (value: string) => boolean> = {
   uuid: (v) => UUID_RE.test(v),
 };
 
-/**
- * Creates a strongly typed environment object based on the provided schema.
- * @param schema The schema defining the expected environment variables and their types.
- * @param options Optional configuration (e.g. .env file loading).
- * @returns A strongly typed object with the parsed environment variables.
- * @throws Error if required variables are missing or have invalid values.
- */
-export function createEnv<S extends EnvSchema>(
-  schema: S,
-  options?: EnvOptions,
-): InferEnv<S> {
-  // Load .env files if requested
-  if (options?.envFiles) {
-    const files = Array.isArray(options.envFiles)
-      ? options.envFiles
-      : defaultEnvFiles();
-    loadEnvFiles(files);
-  }
+type ParsedRecord = Record<
+  string,
+  string | number | boolean | (string | number | boolean)[] | undefined
+>;
 
-  const parsedEnv: Record<
-    string,
-    string | number | boolean | (string | number | boolean)[] | undefined
-  > = {};
+/**
+ * Internal: parse + validate a schema against the current process.env.
+ * Returns the parsed values and any validation errors collected.
+ */
+function parseSchema(
+  schema: EnvSchema,
+  prefix?: string,
+): { parsed: ParsedRecord; errors: string[] } {
+  const parsedEnv: ParsedRecord = {};
   const validationErrors: string[] = [];
 
-  // 1. Iterate over each key in the schema and validate/parse the corresponding env variable
   for (const [key, config] of Object.entries(schema)) {
-    // Build description suffix for error messages
     const desc = config.describe ? ` (${config.describe})` : "";
 
-    // Guard: choices, validate, and format are mutually exclusive
     const hasChoices = "choices" in config && config.choices;
     const hasValidate = "validate" in config && config.validate;
     const hasFormat = "format" in config && config.format;
@@ -77,10 +73,9 @@ export function createEnv<S extends EnvSchema>(
       continue;
     }
 
-    const envKey = options?.prefix ? `${options.prefix}${key}` : key;
+    const envKey = prefix ? `${prefix}${key}` : key;
     const rawValue = process.env[envKey];
 
-    // 2. Check if the variable is required but missing
     if (config.required && rawValue === undefined) {
       validationErrors.push(
         `❌ '${envKey}'${desc}: Is marked as required but was not found.`,
@@ -88,7 +83,6 @@ export function createEnv<S extends EnvSchema>(
       continue;
     }
 
-    // Handle array type separately
     if (config.type === "array") {
       if (rawValue === undefined) {
         parsedEnv[key] =
@@ -158,11 +152,9 @@ export function createEnv<S extends EnvSchema>(
         );
       }
     } else {
-      // If it's a string, we just take it as is
       parsedEnv[key] = rawValue;
     }
 
-    // 4. Check format constraint
     if ("format" in config && config.format && parsedEnv[key] !== undefined) {
       const formatFn = FORMAT_VALIDATORS[config.format];
       if (!formatFn(String(parsedEnv[key]))) {
@@ -172,7 +164,6 @@ export function createEnv<S extends EnvSchema>(
       }
     }
 
-    // 5. Check choices constraint
     if (config.choices && parsedEnv[key] !== undefined) {
       if (
         !config.choices.includes(parsedEnv[key] as string | number | boolean)
@@ -183,7 +174,6 @@ export function createEnv<S extends EnvSchema>(
       }
     }
 
-    // 5. Run custom validate function if provided
     if (config.validate && parsedEnv[key] !== undefined) {
       if (!config.validate(parsedEnv[key] as string | number | boolean)) {
         validationErrors.push(
@@ -193,20 +183,95 @@ export function createEnv<S extends EnvSchema>(
     }
   }
 
-  // Fail-Fast: If errors are found, abort the app IMMEDIATELY!
-  if (validationErrors.length > 0) {
-    if (options?.onError) {
-      options.onError(validationErrors);
-    } else {
-      const errorMessage =
-        `\n\ud83d\udea8 Env-Guard validation errors on app start:\n` +
-        validationErrors.join("\n");
-      throw new Error(errorMessage);
+  return { parsed: parsedEnv, errors: validationErrors };
+}
+
+function handleErrors(errors: string[], onError?: (errors: string[]) => void) {
+  if (errors.length === 0) return;
+  if (onError) {
+    onError(errors);
+  } else {
+    throw new Error(
+      `\n\ud83d\udea8 Env-Guard validation errors on app start:\n` +
+        errors.join("\n"),
+    );
+  }
+}
+
+/**
+ * Creates a strongly typed environment object based on the provided schema.
+ * @param schema The schema defining the expected environment variables and their types.
+ * @param options Optional configuration (e.g. .env file loading).
+ * @returns A strongly typed object with the parsed environment variables.
+ * @throws Error if required variables are missing or have invalid values.
+ */
+export function createEnv<S extends EnvSchema>(
+  schema: S,
+  options: EnvOptions & { watch: true },
+): WatchableEnv<S>;
+export function createEnv<S extends EnvSchema>(
+  schema: S,
+  options?: EnvOptions,
+): InferEnv<S>;
+export function createEnv<S extends EnvSchema>(
+  schema: S,
+  options?: EnvOptions,
+): InferEnv<S> | WatchableEnv<S> {
+  // Load .env files if requested
+  if (options?.envFiles) {
+    const files = Array.isArray(options.envFiles)
+      ? options.envFiles
+      : defaultEnvFiles();
+    loadEnvFiles(files);
+  }
+
+  const { parsed, errors } = parseSchema(schema, options?.prefix);
+  handleErrors(errors, options?.onError);
+
+  if (!options?.watch) {
+    return parsed as InferEnv<S>;
+  }
+
+  // Build a watchable env object with refresh() / on() / off()
+  const listeners: Set<ChangeListener<S>> = new Set();
+  const env = { ...parsed } as Record<string, unknown>;
+
+  function refresh() {
+    const { parsed: next, errors: nextErrors } = parseSchema(
+      schema,
+      options?.prefix,
+    );
+    handleErrors(nextErrors, options?.onError);
+
+    for (const key of Object.keys(schema)) {
+      const oldVal = env[key];
+      const newVal = next[key];
+      const changed =
+        Array.isArray(oldVal) || Array.isArray(newVal)
+          ? JSON.stringify(oldVal) !== JSON.stringify(newVal)
+          : oldVal !== newVal;
+      if (changed) {
+        env[key] = newVal;
+        for (const listener of listeners) {
+          listener(key, oldVal, newVal);
+        }
+      }
     }
   }
 
-  // Everything successful, return the clean object with type safety
-  return parsedEnv as InferEnv<S>;
+  function on(_event: "change", listener: ChangeListener<S>) {
+    listeners.add(listener);
+  }
+
+  function off(_event: "change", listener: ChangeListener<S>) {
+    listeners.delete(listener);
+  }
+
+  Object.defineProperty(env, "refresh", { value: refresh, enumerable: false });
+  Object.defineProperty(env, "on", { value: on, enumerable: false });
+  Object.defineProperty(env, "off", { value: off, enumerable: false });
+
+  return env as WatchableEnv<S>;
 }
 
 // ---------------------------------------------------------------------------

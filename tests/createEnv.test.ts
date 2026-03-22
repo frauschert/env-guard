@@ -709,4 +709,203 @@ describe("createEnv", () => {
       ).toThrow("'APP_PORT' (HTTP port)");
     });
   });
+
+  describe("runtime refresh (watch)", () => {
+    afterEach(() => {
+      delete process.env.HOST;
+      delete process.env.PORT;
+      delete process.env.DEBUG;
+      delete process.env.TAGS;
+    });
+
+    it("returns an object with refresh, on, and off methods", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv(
+        { HOST: { type: "string", required: true } },
+        { watch: true },
+      );
+      expect(typeof env.refresh).toBe("function");
+      expect(typeof env.on).toBe("function");
+      expect(typeof env.off).toBe("function");
+    });
+
+    it("refresh, on, off are non-enumerable", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv(
+        { HOST: { type: "string", required: true } },
+        { watch: true },
+      );
+      expect(Object.keys(env)).toEqual(["HOST"]);
+    });
+
+    it("returns parsed values like normal createEnv", () => {
+      process.env.HOST = "localhost";
+      process.env.PORT = "3000";
+      const env = createEnv(
+        {
+          HOST: { type: "string", required: true },
+          PORT: { type: "number", required: true },
+        },
+        { watch: true },
+      );
+      expect(env.HOST).toBe("localhost");
+      expect(env.PORT).toBe(3000);
+    });
+
+    it("refresh() picks up changed values", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv(
+        { HOST: { type: "string", required: true } },
+        { watch: true },
+      );
+      expect(env.HOST).toBe("localhost");
+
+      process.env.HOST = "0.0.0.0";
+      env.refresh();
+      expect(env.HOST).toBe("0.0.0.0");
+    });
+
+    it("refresh() picks up new values for optional vars", () => {
+      const env = createEnv(
+        { DEBUG: { type: "boolean", default: false } },
+        { watch: true },
+      );
+      expect(env.DEBUG).toBe(false);
+
+      process.env.DEBUG = "true";
+      env.refresh();
+      expect(env.DEBUG).toBe(true);
+    });
+
+    it("fires change listener on refresh", () => {
+      process.env.PORT = "3000";
+      const env = createEnv(
+        { PORT: { type: "number", required: true } },
+        { watch: true },
+      );
+
+      const changes: Array<{ key: string; oldVal: unknown; newVal: unknown }> =
+        [];
+      env.on("change", (key, oldVal, newVal) => {
+        changes.push({ key, oldVal, newVal });
+      });
+
+      process.env.PORT = "8080";
+      env.refresh();
+
+      expect(changes).toEqual([{ key: "PORT", oldVal: 3000, newVal: 8080 }]);
+    });
+
+    it("does not fire listener when values are unchanged", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv(
+        { HOST: { type: "string", required: true } },
+        { watch: true },
+      );
+
+      const changes: unknown[] = [];
+      env.on("change", (key) => changes.push(key));
+
+      env.refresh();
+      expect(changes).toEqual([]);
+    });
+
+    it("fires listener for each changed key", () => {
+      process.env.HOST = "a";
+      process.env.PORT = "1";
+      const env = createEnv(
+        {
+          HOST: { type: "string", required: true },
+          PORT: { type: "number", required: true },
+        },
+        { watch: true },
+      );
+
+      const keys: string[] = [];
+      env.on("change", (key) => keys.push(key));
+
+      process.env.HOST = "b";
+      process.env.PORT = "2";
+      env.refresh();
+
+      expect(keys).toContain("HOST");
+      expect(keys).toContain("PORT");
+    });
+
+    it("off() removes a listener", () => {
+      process.env.HOST = "a";
+      const env = createEnv(
+        { HOST: { type: "string", required: true } },
+        { watch: true },
+      );
+
+      const calls: string[] = [];
+      const listener = (key: string) => calls.push(key);
+      env.on("change", listener);
+
+      process.env.HOST = "b";
+      env.refresh();
+      expect(calls).toEqual(["HOST"]);
+
+      env.off("change", listener);
+      process.env.HOST = "c";
+      env.refresh();
+      expect(calls).toEqual(["HOST"]); // still just one call
+    });
+
+    it("refresh() throws on validation errors by default", () => {
+      process.env.PORT = "3000";
+      const env = createEnv(
+        { PORT: { type: "number", required: true } },
+        { watch: true },
+      );
+
+      delete process.env.PORT;
+      expect(() => env.refresh()).toThrow("PORT");
+    });
+
+    it("refresh() uses onError when provided", () => {
+      process.env.PORT = "3000";
+      const errors: string[] = [];
+      const env = createEnv(
+        { PORT: { type: "number", required: true } },
+        { watch: true, onError: (e) => errors.push(...e) },
+      );
+
+      delete process.env.PORT;
+      env.refresh();
+      expect(errors.length).toBe(1);
+      expect(errors[0]).toContain("PORT");
+    });
+
+    it("detects changes in array values", () => {
+      process.env.TAGS = "a,b";
+      const env = createEnv(
+        { TAGS: { type: "array", itemType: "string", required: true } },
+        { watch: true },
+      );
+      expect(env.TAGS).toEqual(["a", "b"]);
+
+      const changes: Array<{ oldVal: unknown; newVal: unknown }> = [];
+      env.on("change", (_key, oldVal, newVal) => {
+        changes.push({ oldVal, newVal });
+      });
+
+      process.env.TAGS = "x,y,z";
+      env.refresh();
+      expect(env.TAGS).toEqual(["x", "y", "z"]);
+      expect(changes).toEqual([
+        { oldVal: ["a", "b"], newVal: ["x", "y", "z"] },
+      ]);
+    });
+
+    it("without watch, returned object has no refresh/on/off", () => {
+      process.env.HOST = "localhost";
+      const env = createEnv({ HOST: { type: "string", required: true } });
+      expect("refresh" in env).toBe(false);
+      expect("on" in env).toBe(false);
+      expect("off" in env).toBe(false);
+      delete process.env.HOST;
+    });
+  });
 });

@@ -87,7 +87,26 @@ export interface EnvOptions {
   prefix?: string;
   /** Custom error handler. Receives the array of error strings. If provided, replaces the default throw behaviour — you must throw or exit yourself if desired. */
   onError?: (errors: string[]) => void;
+  /** When `true`, the returned object supports `.refresh()` and `.on("change", …)` for runtime re-reading. */
+  watch?: boolean;
 }
+
+/** Callback fired by `WatchableEnv` when `refresh()` detects a value change. */
+export type ChangeListener<S extends EnvSchema = EnvSchema> = (
+  key: keyof S & string,
+  oldValue: unknown,
+  newValue: unknown,
+) => void;
+
+/** Env object returned when `watch: true`. Extends `InferEnv` with runtime refresh capabilities. */
+export type WatchableEnv<S extends EnvSchema> = InferEnv<S> & {
+  /** Re-read `process.env`, re-validate, update properties in-place, and fire change callbacks. */
+  refresh(): void;
+  /** Register a listener for value changes detected by `refresh()`. */
+  on(event: "change", listener: ChangeListener<S>): void;
+  /** Remove a previously registered change listener. */
+  off(event: "change", listener: ChangeListener<S>): void;
+};
 
 export interface FrameworkEnvConfig<
   C extends EnvSchema = EnvSchema,
