@@ -17,6 +17,7 @@ Strongly typed, fail-fast environment variable validation for Node.js.
 - **`describe` field** — optional human-readable description per variable, included in error messages
 - **Framework adapters** — first-class integrations for Next.js, Vite, Astro, SvelteKit, and Remix
 - **Runtime refresh** — re-read environment variables at runtime with optional change callbacks
+- **Secret masking** — mark variables as `sensitive` so values are redacted in errors and change events
 
 ## Installation
 
@@ -52,26 +53,27 @@ If a required variable is missing or a value doesn't match its declared type, `c
 
 ## Schema Options
 
-| Option     | Type                                           | Description                                                              |
-| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
-| `type`     | `"string" \| "number" \| "boolean"`            | The expected data type                                                   |
-| `required` | `boolean`                                      | Fail if the variable is missing                                          |
-| `default`  | `string \| number \| boolean`                  | Fallback when the variable is unset                                      |
-| `choices`  | `readonly (string \| number \| boolean)[]`     | Fixed set of allowed values (exclusive with `validate`/`format`)         |
-| `validate` | `(value) => boolean`                           | Custom validation function (exclusive with `choices`/`format`)           |
-| `format`   | `"url" \| "email" \| "ip" \| "port" \| "uuid"` | Built-in format preset for strings (exclusive with `choices`/`validate`) |
-| `describe` | `string`                                       | Human-readable description, shown in error messages                      |
+| Option      | Type                                           | Description                                                              |
+| ----------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
+| `type`      | `"string" \| "number" \| "boolean"`            | The expected data type                                                   |
+| `required`  | `boolean`                                      | Fail if the variable is missing                                          |
+| `default`   | `string \| number \| boolean`                  | Fallback when the variable is unset                                      |
+| `choices`   | `readonly (string \| number \| boolean)[]`     | Fixed set of allowed values (exclusive with `validate`/`format`)         |
+| `validate`  | `(value) => boolean`                           | Custom validation function (exclusive with `choices`/`format`)           |
+| `format`    | `"url" \| "email" \| "ip" \| "port" \| "uuid"` | Built-in format preset for strings (exclusive with `choices`/`validate`) |
+| `describe`  | `string`                                       | Human-readable description, shown in error messages                      |
+| `sensitive` | `boolean`                                      | Redact the value in error messages and change-listener arguments         |
 
 For array variables, use a different schema shape:
 
 | Option      | Type                                | Description                                         |
-| ----------- | ----------------------------------- | --------------------------------------------------- |
+| ----------- | ----------------------------------- | --------------------------------------------------- | --- | ----------- | --------- | ---------------------------------------------------- |
 | `type`      | `"array"`                           | Declares the variable as an array                   |
 | `itemType`  | `"string" \| "number" \| "boolean"` | The type of each element                            |
 | `separator` | `string`                            | Delimiter (defaults to `","`)                       |
 | `required`  | `boolean`                           | Fail if the variable is missing                     |
 | `default`   | `string[]`                          | Fallback when the variable is unset                 |
-| `describe`  | `string`                            | Human-readable description, shown in error messages |
+| `describe`  | `string`                            | Human-readable description, shown in error messages |     | `sensitive` | `boolean` | Redact the value in error messages and change events |
 
 ### Custom Validators
 
@@ -365,6 +367,35 @@ The returned object has three extra (non-enumerable) methods:
 - When `watch` is not set (the default), `createEnv` returns a plain object — no extra methods, no overhead.
 - `refresh()` re-validates against the full schema. If validation fails, it uses `onError` (if provided) or throws the default error.
 - Change listeners fire once per changed key, after the property has been updated.
+
+### Secret Masking
+
+Mark a variable as `sensitive` to redact its value in error messages and change-listener arguments. The actual property on the env object still holds the real value — only diagnostics are masked:
+
+```ts
+const env = createEnv({
+  DB_PASSWORD: { type: "string", required: true, sensitive: true },
+  API_KEY: { type: "string", required: true, sensitive: true },
+  PORT: { type: "number", default: 3000 },
+});
+```
+
+If a sensitive variable fails validation, the error hides the value:
+
+```
+❌ 'DB_PASSWORD': Expected 'number', but got '****'.
+❌ 'API_KEY': Custom validation failed for value '****'.
+```
+
+With `watch: true`, change listeners receive `"****"` instead of the real old / new values for sensitive keys:
+
+```ts
+env.on("change", (key, oldVal, newVal) => {
+  console.log(key, oldVal, newVal);
+  // DB_PASSWORD **** ****
+  // PORT 3000 8080
+});
+```
 
 ## License
 

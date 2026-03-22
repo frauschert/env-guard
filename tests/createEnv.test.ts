@@ -908,4 +908,141 @@ describe("createEnv", () => {
       delete process.env.HOST;
     });
   });
+
+  describe("sensitive masking", () => {
+    afterEach(() => {
+      delete process.env.DB_PASS;
+      delete process.env.TOKEN;
+      delete process.env.MODE;
+      delete process.env.FLAGS;
+    });
+
+    it("redacts value in type mismatch error for number", () => {
+      process.env.DB_PASS = "not-a-number";
+      expect(() =>
+        createEnv({
+          DB_PASS: { type: "number", required: true, sensitive: true },
+        }),
+      ).toThrow("'****'");
+    });
+
+    it("redacts value in type mismatch error for boolean", () => {
+      process.env.DB_PASS = "not-a-bool";
+      expect(() =>
+        createEnv({
+          DB_PASS: { type: "boolean", required: true, sensitive: true },
+        }),
+      ).toThrow("'****'");
+    });
+
+    it("redacts value in choices error", () => {
+      process.env.MODE = "secret-mode";
+      expect(() =>
+        createEnv({
+          MODE: {
+            type: "string",
+            required: true,
+            choices: ["a", "b"] as const,
+            sensitive: true,
+          },
+        }),
+      ).toThrow("Value '****'");
+      delete process.env.MODE;
+    });
+
+    it("redacts value in custom validate error", () => {
+      process.env.TOKEN = "bad-token";
+      expect(() =>
+        createEnv({
+          TOKEN: {
+            type: "string",
+            required: true,
+            validate: () => false,
+            sensitive: true,
+          },
+        }),
+      ).toThrow("value '****'");
+    });
+
+    it("redacts value in format error", () => {
+      process.env.TOKEN = "not-a-url";
+      expect(() =>
+        createEnv({
+          TOKEN: {
+            type: "string",
+            format: "url",
+            required: true,
+            sensitive: true,
+          },
+        }),
+      ).toThrow("Value '****'");
+    });
+
+    it("redacts array item values in error", () => {
+      process.env.FLAGS = "1,secret,3";
+      expect(() =>
+        createEnv({
+          FLAGS: {
+            type: "array",
+            itemType: "number",
+            required: true,
+            sensitive: true,
+          },
+        }),
+      ).toThrow("'****'");
+    });
+
+    it("does not redact when sensitive is not set", () => {
+      process.env.DB_PASS = "not-a-number";
+      expect(() =>
+        createEnv({
+          DB_PASS: { type: "number", required: true },
+        }),
+      ).toThrow("'not-a-number'");
+    });
+
+    it("still shows key name for required-but-missing sensitive var", () => {
+      expect(() =>
+        createEnv({
+          DB_PASS: { type: "string", required: true, sensitive: true },
+        }),
+      ).toThrow("DB_PASS");
+    });
+
+    it("redacts old and new values in change listener for sensitive vars", () => {
+      process.env.DB_PASS = "old-secret";
+      const env = createEnv(
+        { DB_PASS: { type: "string", required: true, sensitive: true } },
+        { watch: true },
+      );
+
+      const changes: Array<{ oldVal: unknown; newVal: unknown }> = [];
+      env.on("change", (_key, oldVal, newVal) => {
+        changes.push({ oldVal, newVal });
+      });
+
+      process.env.DB_PASS = "new-secret";
+      env.refresh();
+      expect(changes).toEqual([{ oldVal: "****", newVal: "****" }]);
+      // The actual property still holds the real value
+      expect(env.DB_PASS).toBe("new-secret");
+    });
+
+    it("does not redact change listener values for non-sensitive vars", () => {
+      process.env.DB_PASS = "old";
+      const env = createEnv(
+        { DB_PASS: { type: "string", required: true } },
+        { watch: true },
+      );
+
+      const changes: Array<{ oldVal: unknown; newVal: unknown }> = [];
+      env.on("change", (_key, oldVal, newVal) => {
+        changes.push({ oldVal, newVal });
+      });
+
+      process.env.DB_PASS = "new";
+      env.refresh();
+      expect(changes).toEqual([{ oldVal: "old", newVal: "new" }]);
+    });
+  });
 });

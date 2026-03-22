@@ -44,6 +44,8 @@ const FORMAT_VALIDATORS: Record<EnvFormat, (value: string) => boolean> = {
   uuid: (v) => UUID_RE.test(v),
 };
 
+const REDACTED = "****";
+
 type ParsedRecord = Record<
   string,
   string | number | boolean | (string | number | boolean)[] | undefined
@@ -62,6 +64,9 @@ function parseSchema(
 
   for (const [key, config] of Object.entries(schema)) {
     const desc = config.describe ? ` (${config.describe})` : "";
+    const isSensitive = "sensitive" in config && config.sensitive === true;
+    const displayVal = (v: unknown) => (isSensitive ? REDACTED : `${v}`);
+    const displayRaw = (v: string) => (isSensitive ? REDACTED : v);
 
     const hasChoices = "choices" in config && config.choices;
     const hasValidate = "validate" in config && config.validate;
@@ -99,7 +104,7 @@ function parseSchema(
           const n = Number(item);
           if (Number.isNaN(n)) {
             validationErrors.push(
-              `❌ '${key}'${desc}: Array item '${item}' is not a valid number.`,
+              `❌ '${key}'${desc}: Array item '${displayRaw(item)}' is not a valid number.`,
             );
             hasError = true;
           } else {
@@ -113,7 +118,7 @@ function parseSchema(
             parsed.push(false);
           } else {
             validationErrors.push(
-              `❌ '${key}'${desc}: Array item '${item}' is not a valid boolean.`,
+              `❌ '${key}'${desc}: Array item '${displayRaw(item)}' is not a valid boolean.`,
             );
             hasError = true;
           }
@@ -135,7 +140,7 @@ function parseSchema(
       const parsedNumber = Number(rawValue);
       if (Number.isNaN(parsedNumber)) {
         validationErrors.push(
-          `❌ '${key}'${desc}: Expected 'number', but got '${rawValue}'.`,
+          `❌ '${key}'${desc}: Expected 'number', but got '${displayRaw(rawValue)}'.`,
         );
       } else {
         parsedEnv[key] = parsedNumber;
@@ -148,7 +153,7 @@ function parseSchema(
         parsedEnv[key] = false;
       } else {
         validationErrors.push(
-          `❌ '${key}'${desc}: Expected 'boolean' (true/false/1/0), but got '${rawValue}'.`,
+          `❌ '${key}'${desc}: Expected 'boolean' (true/false/1/0), but got '${displayRaw(rawValue)}'.`,
         );
       }
     } else {
@@ -159,7 +164,7 @@ function parseSchema(
       const formatFn = FORMAT_VALIDATORS[config.format];
       if (!formatFn(String(parsedEnv[key]))) {
         validationErrors.push(
-          `\u274c '${key}'${desc}: Value '${parsedEnv[key]}' does not match format '${config.format}'.`,
+          `\u274c '${key}'${desc}: Value '${displayVal(parsedEnv[key])}' does not match format '${config.format}'.`,
         );
       }
     }
@@ -169,7 +174,7 @@ function parseSchema(
         !config.choices.includes(parsedEnv[key] as string | number | boolean)
       ) {
         validationErrors.push(
-          `❌ '${key}'${desc}: Value '${parsedEnv[key]}' is not in allowed choices [${config.choices.map((c) => `'${c}'`).join(", ")}].`,
+          `❌ '${key}'${desc}: Value '${displayVal(parsedEnv[key])}' is not in allowed choices [${config.choices.map((c) => `'${c}'`).join(", ")}].`,
         );
       }
     }
@@ -177,7 +182,7 @@ function parseSchema(
     if (config.validate && parsedEnv[key] !== undefined) {
       if (!config.validate(parsedEnv[key] as string | number | boolean)) {
         validationErrors.push(
-          `❌ '${key}'${desc}: Custom validation failed for value '${parsedEnv[key]}'.`,
+          `❌ '${key}'${desc}: Custom validation failed for value '${displayVal(parsedEnv[key])}'.`,
         );
       }
     }
@@ -252,8 +257,14 @@ export function createEnv<S extends EnvSchema>(
           : oldVal !== newVal;
       if (changed) {
         env[key] = newVal;
+        const isSensitive =
+          "sensitive" in schema[key] && schema[key].sensitive === true;
         for (const listener of listeners) {
-          listener(key, oldVal, newVal);
+          listener(
+            key,
+            isSensitive ? REDACTED : oldVal,
+            isSensitive ? REDACTED : newVal,
+          );
         }
       }
     }

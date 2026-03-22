@@ -10,6 +10,8 @@ interface EnvVarConfigBase {
   default?: string | number | boolean;
   /** Human-readable description. Included in error messages and useful for generated docs. */
   describe?: string;
+  /** When `true`, the value is redacted in error messages and change-listener arguments. */
+  sensitive?: boolean;
 }
 
 interface EnvVarConfigWithValidate extends EnvVarConfigBase {
@@ -45,6 +47,8 @@ export interface EnvArrayConfig {
   default?: string[];
   /** Human-readable description. Included in error messages and useful for generated docs. */
   describe?: string;
+  /** When `true`, the value is redacted in error messages and change-listener arguments. */
+  sensitive?: boolean;
 }
 
 export type EnvVarConfig =
