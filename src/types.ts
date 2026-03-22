@@ -12,6 +12,8 @@ interface EnvVarConfigBase {
   describe?: string;
   /** When `true`, the value is redacted in error messages and change-listener arguments. */
   sensitive?: boolean;
+  /** Custom coercion function. Receives the raw string from `process.env` and returns the transformed value. Runs **before** type parsing and validation. */
+  coerce?: (raw: string) => unknown;
 }
 
 interface EnvVarConfigWithValidate extends EnvVarConfigBase {
@@ -49,6 +51,8 @@ export interface EnvArrayConfig {
   describe?: string;
   /** When `true`, the value is redacted in error messages and change-listener arguments. */
   sensitive?: boolean;
+  /** Custom coercion function. Receives the raw string from `process.env` and returns the transformed value. When used with `type: "array"`, the return value replaces the entire parsed array. */
+  coerce?: (raw: string) => unknown;
 }
 
 export type EnvVarConfig =

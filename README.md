@@ -429,10 +429,48 @@ env.PROT; // ❌ Error: Attempted to access unknown env variable 'PROT'
 - `freeze` cannot be combined with `watch` (refresh needs to mutate the object). Attempting both throws at creation time.
 - `strict` works with `watch` — `refresh()`, `on()`, and `off()` remain accessible.
 
+### Type Coercion Hooks
+
+Supply a `coerce` function to transform the raw string from `process.env` before type parsing and validation:
+
+```ts
+import { createEnv } from "@frauschert/env-guard";
+
+const env = createEnv({
+  // Parse a JSON string
+  CONFIG: {
+    type: "string",
+    required: true,
+    coerce: (raw) => JSON.parse(raw),
+  },
+  // Decode base64
+  SECRET: {
+    type: "string",
+    required: true,
+    coerce: (raw) => Buffer.from(raw, "base64").toString("utf-8"),
+  },
+  // Strip currency symbol before number parsing
+  PRICE: {
+    type: "number",
+    required: true,
+    coerce: (raw) => parseFloat(raw.replace("$", "")),
+  },
+  // Parse a JSON array instead of comma-separated
+  TAGS: {
+    type: "array",
+    itemType: "string",
+    required: true,
+    coerce: (raw) => JSON.parse(raw),
+  },
+});
+```
+
+- `coerce` receives the raw env string and returns the transformed value.
+- It runs **before** type parsing — the returned value replaces the normal parse result.
+- Validation (`choices`, `validate`, `format`) still applies to the coerced value.
+- For `type: "array"`, `coerce` bypasses the default split-by-separator logic — you control the full parsing.
+- When the variable is missing, `coerce` is not called and `default` is used as normal.
+
 ## License
 
 MIT
-
-```
-
-```

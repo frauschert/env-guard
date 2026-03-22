@@ -94,6 +94,15 @@ function parseSchema(
           config.default !== undefined ? config.default : undefined;
         continue;
       }
+
+      // Custom coercion: bypass normal split+parse, use coerced result directly
+      if (config.coerce) {
+        parsedEnv[key] = config.coerce(rawValue) as
+          | (string | number | boolean)[]
+          | undefined;
+        continue;
+      }
+
       const separator = config.separator ?? ",";
       const items = rawValue.split(separator).map((s) => s.trim());
       const parsed: (string | number | boolean)[] = [];
@@ -136,6 +145,13 @@ function parseSchema(
     if (rawValue === undefined) {
       parsedEnv[key] =
         config.default !== undefined ? config.default : undefined;
+    } else if (config.coerce) {
+      // Custom coercion: bypass normal type parsing
+      parsedEnv[key] = config.coerce(rawValue) as
+        | string
+        | number
+        | boolean
+        | undefined;
     } else if (config.type === "number") {
       const parsedNumber = Number(rawValue);
       if (Number.isNaN(parsedNumber)) {

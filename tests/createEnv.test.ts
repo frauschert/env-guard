@@ -1179,4 +1179,164 @@ describe("createEnv", () => {
       delete process.env.HOST;
     });
   });
+
+  describe("coerce option", () => {
+    it("coerces a JSON string into an object", () => {
+      process.env.CONFIG = '{"port":3000,"debug":true}';
+      const env = createEnv({
+        CONFIG: {
+          type: "string",
+          required: true,
+          coerce: (raw) => JSON.parse(raw),
+        },
+      });
+      expect(env.CONFIG).toEqual({ port: 3000, debug: true });
+      delete process.env.CONFIG;
+    });
+
+    it("decodes a base64 string", () => {
+      const original = "hello world";
+      process.env.ENCODED = Buffer.from(original).toString("base64");
+      const env = createEnv({
+        ENCODED: {
+          type: "string",
+          required: true,
+          coerce: (raw) => Buffer.from(raw, "base64").toString("utf-8"),
+        },
+      });
+      expect(env.ENCODED).toBe("hello world");
+      delete process.env.ENCODED;
+    });
+
+    it("coerces a string to a number with custom logic", () => {
+      process.env.AMOUNT = "$42.50";
+      const env = createEnv({
+        AMOUNT: {
+          type: "number",
+          required: true,
+          coerce: (raw) => parseFloat(raw.replace("$", "")),
+        },
+      });
+      expect(env.AMOUNT).toBe(42.5);
+      delete process.env.AMOUNT;
+    });
+
+    it("coerces an array type with custom parsing", () => {
+      process.env.JSON_ARRAY = '["alpha","beta","gamma"]';
+      const env = createEnv({
+        JSON_ARRAY: {
+          type: "array",
+          itemType: "string",
+          required: true,
+          coerce: (raw) => JSON.parse(raw),
+        },
+      });
+      expect(env.JSON_ARRAY).toEqual(["alpha", "beta", "gamma"]);
+      delete process.env.JSON_ARRAY;
+    });
+
+    it("skips coerce when variable is missing and uses default", () => {
+      const coerce = vi.fn();
+      delete process.env.MISSING_COERCE;
+      const env = createEnv({
+        MISSING_COERCE: {
+          type: "string",
+          default: "fallback",
+          coerce,
+        },
+      });
+      expect(env.MISSING_COERCE).toBe("fallback");
+      expect(coerce).not.toHaveBeenCalled();
+    });
+
+    it("coerced value is still subject to choices validation", () => {
+      process.env.LEVEL = "  warn  ";
+      expect(() =>
+        createEnv({
+          LEVEL: {
+            type: "string",
+            required: true,
+            choices: ["info", "warn", "error"] as const,
+            coerce: (raw) => raw.trim(),
+          },
+        }),
+      ).not.toThrow();
+      expect(() =>
+        createEnv({
+          LEVEL: {
+            type: "string",
+            required: true,
+            choices: ["info", "error"] as const,
+            coerce: (raw) => raw.trim(),
+          },
+        }),
+      ).toThrow("not in allowed choices");
+      delete process.env.LEVEL;
+    });
+
+    it("coerced value is subject to custom validate", () => {
+      process.env.POSITIVE = "-5";
+      expect(() =>
+        createEnv({
+          POSITIVE: {
+            type: "number",
+            required: true,
+            validate: (v) => (v as number) > 0,
+            coerce: (raw) => Number(raw),
+          },
+        }),
+      ).toThrow("Custom validation failed");
+      delete process.env.POSITIVE;
+    });
+
+    it("coerced value is subject to format validation", () => {
+      process.env.SITE = "example.com";
+      expect(() =>
+        createEnv({
+          SITE: {
+            type: "string",
+            required: true,
+            format: "url",
+            coerce: (raw) => raw, // no transformation — still invalid
+          },
+        }),
+      ).toThrow("does not match format 'url'");
+      delete process.env.SITE;
+    });
+
+    it("works with sensitive masking", () => {
+      process.env.SECRET_JSON = '{"key":"value"}';
+      expect(() =>
+        createEnv({
+          SECRET_JSON: {
+            type: "string",
+            required: true,
+            sensitive: true,
+            coerce: (raw) => JSON.parse(raw),
+            validate: () => false,
+          },
+        }),
+      ).toThrow("****");
+      delete process.env.SECRET_JSON;
+    });
+
+    it("works with watch and refresh", () => {
+      process.env.TRIMMED = "  hello  ";
+      const env = createEnv(
+        {
+          TRIMMED: {
+            type: "string",
+            required: true,
+            coerce: (raw) => raw.trim(),
+          },
+        },
+        { watch: true },
+      );
+      expect(env.TRIMMED).toBe("hello");
+      process.env.TRIMMED = "  world  ";
+      env.refresh();
+      expect(env.TRIMMED).toBe("world");
+      delete process.env.TRIMMED;
+    });
+  });
 });
