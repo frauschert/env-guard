@@ -7,6 +7,12 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   prettierConfig,
   {
-    ignores: ["dist/", "node_modules/", "docs/"],
+    ignores: [
+      "dist/",
+      "packages/**/dist/",
+      "node_modules/",
+      "packages/**/node_modules/",
+      "docs/",
+    ],
   },
 );

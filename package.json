@@ -4,6 +4,9 @@
   "description": "Strongly typed, fail-fast environment variable validation for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "workspaces": [
+    "packages/*"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
