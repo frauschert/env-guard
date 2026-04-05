@@ -16,6 +16,7 @@ export default defineConfig({
       { text: "Guide", link: "/guide/getting-started" },
       { text: "Features", link: "/features/validators-formats" },
       { text: "Frameworks", link: "/frameworks/overview" },
+      { text: "Integrations", link: "/integrations/zod" },
       { text: "API Reference", link: "/api/" },
     ],
     sidebar: [
@@ -56,6 +57,10 @@ export default defineConfig({
           { text: "SvelteKit", link: "/frameworks/sveltekit" },
           { text: "Remix", link: "/frameworks/remix" },
         ],
+      },
+      {
+        text: "Integrations",
+        items: [{ text: "Zod Adapter", link: "/integrations/zod" }],
       },
       {
         text: "API Reference",

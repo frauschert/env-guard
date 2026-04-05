@@ -26,4 +26,6 @@ features:
     details: Re-read env vars at runtime with change callbacks — ideal for secrets rotation.
   - title: 🛡️ Secret masking
     details: Mark variables as sensitive to redact values in error messages and change events.
+  - title: 🧩 Zod adapter
+    details: Use Zod schemas for env validation — coerce, transform, refine, enum, and more. Available as @frauschert/env-guard-zod.
 ---
