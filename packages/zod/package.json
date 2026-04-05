@@ -20,7 +20,8 @@
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "env",
@@ -35,7 +36,7 @@
     "zod": ">=3.0.0"
   },
   "dependencies": {
-    "@frauschert/env-guard": "*"
+    "@frauschert/env-guard": "^1.1.0"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
