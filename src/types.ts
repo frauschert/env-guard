@@ -100,7 +100,7 @@ export type InferEnv<S extends EnvSchema> = {
       : never;
 };
 
-interface EnvOptionsBase {
+interface EnvOptionsBase<S extends EnvSchema = EnvSchema> {
   /** Load `.env` files before validation. Defaults to `false`. */
   envFiles?: boolean | string[];
   /** Prefix to prepend when reading each env variable (e.g. `"MYAPP_"`). */
@@ -109,22 +109,30 @@ interface EnvOptionsBase {
   onError?: (errors: string[]) => void;
   /** Wrap the returned object in a `Proxy` that throws when accessing keys not defined in the schema. */
   strict?: boolean;
+  /** Cross-field validation. Called after all per-field checks pass. Receives the fully parsed env object. Return `true` to pass, `false` for a generic error, or a `string` to use as the error message. */
+  validate?: (env: InferEnv<S>) => boolean | string;
 }
 
-interface EnvOptionsWithWatch extends EnvOptionsBase {
+interface EnvOptionsWithWatch<
+  S extends EnvSchema = EnvSchema,
+> extends EnvOptionsBase<S> {
   /** When `true`, the returned object supports `.refresh()` and `.on("change", …)` for runtime re-reading. */
   watch: true;
   /** Cannot use `freeze` together with `watch` — refresh() needs to mutate the object. */
   freeze?: never;
 }
 
-interface EnvOptionsNoWatch extends EnvOptionsBase {
+interface EnvOptionsNoWatch<
+  S extends EnvSchema = EnvSchema,
+> extends EnvOptionsBase<S> {
   watch?: false;
   /** Freeze the returned object with `Object.freeze` so property mutations throw in strict mode. Cannot be combined with `watch`. */
   freeze?: boolean;
 }
 
-export type EnvOptions = EnvOptionsWithWatch | EnvOptionsNoWatch;
+export type EnvOptions<S extends EnvSchema = EnvSchema> =
+  | EnvOptionsWithWatch<S>
+  | EnvOptionsNoWatch<S>;
 
 /** Callback fired by `WatchableEnv` when `refresh()` detects a value change. */
 export type ChangeListener<S extends EnvSchema = EnvSchema> = (

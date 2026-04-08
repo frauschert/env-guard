@@ -263,15 +263,15 @@ function applyStrict<T extends object>(obj: T, schemaKeys: Set<string>): T {
  */
 export function createEnv<S extends EnvSchema>(
   schema: S,
-  options: EnvOptions & { watch: true },
+  options: EnvOptions<S> & { watch: true },
 ): WatchableEnv<S>;
 export function createEnv<S extends EnvSchema>(
   schema: S,
-  options?: EnvOptions,
+  options?: EnvOptions<S>,
 ): InferEnv<S>;
 export function createEnv<S extends EnvSchema>(
   schema: S,
-  options?: EnvOptions,
+  options?: EnvOptions<S>,
 ): InferEnv<S> | WatchableEnv<S> {
   // Load .env files if requested
   if (options?.envFiles) {
@@ -283,6 +283,17 @@ export function createEnv<S extends EnvSchema>(
 
   const { parsed, errors } = parseSchema(schema, options?.prefix);
   handleErrors(errors, options?.onError);
+
+  if (options?.validate) {
+    const result = options.validate(parsed as InferEnv<S>);
+    if (result !== true) {
+      const msg =
+        typeof result === "string"
+          ? `❌ Cross-field validation failed: ${result}`
+          : "❌ Cross-field validation failed.";
+      handleErrors([msg], options?.onError);
+    }
+  }
 
   if (options?.freeze && options?.watch) {
     throw new Error(
@@ -318,6 +329,17 @@ export function createEnv<S extends EnvSchema>(
       options?.prefix,
     );
     handleErrors(nextErrors, options?.onError);
+
+    if (options?.validate) {
+      const result = options.validate(next as InferEnv<S>);
+      if (result !== true) {
+        const msg =
+          typeof result === "string"
+            ? `❌ Cross-field validation failed: ${result}`
+            : "❌ Cross-field validation failed.";
+        handleErrors([msg], options?.onError);
+      }
+    }
 
     for (const key of Object.keys(schema)) {
       const oldVal = env[key];
@@ -388,12 +410,12 @@ function createFrameworkEnv<C extends EnvSchema, S extends EnvSchema>(
     ...config.options,
     prefix: clientPrefix,
     onError: collectErrors,
-  } as EnvOptions);
+  } as EnvOptions<C>);
 
   const server = createEnv(config.server, {
     ...config.options,
     onError: collectErrors,
-  } as EnvOptions);
+  } as EnvOptions<S>);
 
   if (allErrors.length > 0) {
     if (config.options?.onError) {

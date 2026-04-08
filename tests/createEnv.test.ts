@@ -1615,4 +1615,101 @@ describe("createEnv", () => {
       expect(env.TAGS).toBeUndefined();
     });
   });
+
+  describe("cross-field validate option", () => {
+    it("passes when validate returns true", () => {
+      process.env.MIN = "1";
+      process.env.MAX = "10";
+      const env = createEnv(
+        {
+          MIN: { type: "number", required: true },
+          MAX: { type: "number", required: true },
+        },
+        { validate: (e) => e.MIN < e.MAX },
+      );
+      expect(env.MIN).toBe(1);
+      expect(env.MAX).toBe(10);
+    });
+
+    it("throws with generic message when validate returns false", () => {
+      process.env.MIN = "10";
+      process.env.MAX = "1";
+      expect(() =>
+        createEnv(
+          {
+            MIN: { type: "number", required: true },
+            MAX: { type: "number", required: true },
+          },
+          { validate: (e) => e.MIN < e.MAX },
+        ),
+      ).toThrow("Cross-field validation failed");
+    });
+
+    it("throws with custom message when validate returns a string", () => {
+      process.env.MIN = "10";
+      process.env.MAX = "1";
+      expect(() =>
+        createEnv(
+          {
+            MIN: { type: "number", required: true },
+            MAX: { type: "number", required: true },
+          },
+          {
+            validate: (e) =>
+              e.MIN < e.MAX ? true : "MIN must be less than MAX",
+          },
+        ),
+      ).toThrow("MIN must be less than MAX");
+    });
+
+    it("is not called when per-field validation already failed", () => {
+      delete process.env.MIN;
+      const crossValidate = vi.fn(() => true);
+      expect(() =>
+        createEnv(
+          { MIN: { type: "number", required: true } },
+          { validate: crossValidate },
+        ),
+      ).toThrow("MIN");
+      expect(crossValidate).not.toHaveBeenCalled();
+    });
+
+    it("respects onError instead of throwing", () => {
+      process.env.MIN = "10";
+      process.env.MAX = "1";
+      const onError = vi.fn();
+      createEnv(
+        {
+          MIN: { type: "number", required: true },
+          MAX: { type: "number", required: true },
+        },
+        {
+          validate: (e) => (e.MIN < e.MAX ? true : "MIN must be < MAX"),
+          onError,
+        },
+      );
+      expect(onError).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.stringContaining("MIN must be < MAX")]),
+      );
+    });
+
+    it("re-runs on refresh() and catches new violations", () => {
+      process.env.MIN = "1";
+      process.env.MAX = "10";
+      const env = createEnv(
+        {
+          MIN: { type: "number", required: true },
+          MAX: { type: "number", required: true },
+        },
+        {
+          watch: true,
+          validate: (e) => (e.MIN < e.MAX ? true : "MIN must be < MAX"),
+        },
+      );
+      expect(env.MIN).toBe(1);
+
+      process.env.MIN = "99";
+      expect(() => env.refresh()).toThrow("MIN must be < MAX");
+    });
+  });
 });
