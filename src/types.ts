@@ -6,7 +6,7 @@ export type EnvFormat = "url" | "email" | "ip" | "port" | "uuid";
 
 interface EnvVarConfigBase {
   type: EnvDataType;
-  required?: boolean;
+  required?: boolean | ((env: NodeJS.ProcessEnv) => boolean);
   default?: string | number | boolean;
   /** Human-readable description. Included in error messages and useful for generated docs. */
   describe?: string;
@@ -45,7 +45,7 @@ export interface EnvArrayConfig {
   type: "array";
   itemType: EnvArrayItemType;
   separator?: string;
-  required?: boolean;
+  required?: boolean | ((env: NodeJS.ProcessEnv) => boolean);
   default?: string[];
   /** Human-readable description. Included in error messages and useful for generated docs. */
   describe?: string;

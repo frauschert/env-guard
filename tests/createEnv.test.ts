@@ -1527,4 +1527,92 @@ describe("createEnv", () => {
       expect(listener).toHaveBeenCalledWith("db", "****", "****");
     });
   });
+
+  describe("required as dynamic function", () => {
+    it("throws when function returns true and variable is missing", () => {
+      delete process.env.SECRET;
+      expect(() =>
+        createEnv({
+          SECRET: { type: "string", required: () => true },
+        }),
+      ).toThrow("SECRET");
+    });
+
+    it("does not throw when function returns false and variable is missing", () => {
+      delete process.env.OPTIONAL;
+      const env = createEnv({
+        OPTIONAL: { type: "string", required: () => false },
+      });
+      expect(env.OPTIONAL).toBeUndefined();
+    });
+
+    it("resolves based on another env var", () => {
+      process.env.FEATURE_FLAG = "true";
+      delete process.env.FEATURE_SECRET;
+      expect(() =>
+        createEnv({
+          FEATURE_SECRET: {
+            type: "string",
+            required: (env) => env.FEATURE_FLAG === "true",
+          },
+        }),
+      ).toThrow("FEATURE_SECRET");
+    });
+
+    it("does not require when the condition env var is absent", () => {
+      delete process.env.FEATURE_FLAG;
+      delete process.env.FEATURE_SECRET;
+      const env = createEnv({
+        FEATURE_SECRET: {
+          type: "string",
+          required: (env) => env.FEATURE_FLAG === "true",
+        },
+      });
+      expect(env.FEATURE_SECRET).toBeUndefined();
+    });
+
+    it("receives the full process.env snapshot", () => {
+      process.env.A = "1";
+      process.env.B = "2";
+      delete process.env.C;
+      const seen: NodeJS.ProcessEnv[] = [];
+      createEnv({
+        C: {
+          type: "string",
+          required: (env) => {
+            seen.push(env);
+            return false;
+          },
+        },
+      });
+      expect(seen[0]).toBe(process.env);
+    });
+
+    it("works with array type", () => {
+      delete process.env.TAGS;
+      process.env.NEED_TAGS = "yes";
+      expect(() =>
+        createEnv({
+          TAGS: {
+            type: "array",
+            itemType: "string",
+            required: (env) => env.NEED_TAGS === "yes",
+          },
+        }),
+      ).toThrow("TAGS");
+    });
+
+    it("does not require array when condition is false", () => {
+      delete process.env.TAGS;
+      delete process.env.NEED_TAGS;
+      const env = createEnv({
+        TAGS: {
+          type: "array",
+          itemType: "string",
+          required: (env) => env.NEED_TAGS === "yes",
+        },
+      });
+      expect(env.TAGS).toBeUndefined();
+    });
+  });
 });

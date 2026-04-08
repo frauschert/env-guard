@@ -98,7 +98,12 @@ function parseSchema(
     const envKey = prefix ? `${prefix}${key}` : key;
     const rawValue = process.env[envKey];
 
-    if (config.required && rawValue === undefined) {
+    const isRequired =
+      typeof config.required === "function"
+        ? config.required(process.env)
+        : config.required;
+
+    if (isRequired && rawValue === undefined) {
       validationErrors.push(
         `❌ '${envKey}'${desc}: Is marked as required but was not found.`,
       );
