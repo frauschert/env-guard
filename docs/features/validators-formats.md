@@ -31,6 +31,26 @@ If validation fails:
 - Skipped for missing optional variables (no value to validate).
 - Runs on default values too — a bad default is caught at startup.
 
+## Conditional `required`
+
+Instead of a static boolean, `required` can be a function that receives the full `process.env` and returns a boolean. This lets you make a variable required only when another variable has a specific value:
+
+```ts
+const env = createEnv({
+  SMTP_HOST: { type: "string", required: true },
+  SMTP_USER: {
+    type: "string",
+    required: (env) => env.SMTP_HOST !== undefined,
+  },
+  SMTP_PASS: {
+    type: "string",
+    required: (env) => env.SMTP_HOST !== undefined,
+  },
+});
+```
+
+The function is evaluated at startup (and on every `refresh()` call in watch mode), giving you dynamic conditional required logic without any extra wiring.
+
 ## String Format Presets
 
 Use `format` for built-in validation of common string formats:

@@ -35,6 +35,10 @@ export default defineConfig({
             text: "Validators & Formats",
             link: "/features/validators-formats",
           },
+          {
+            text: "Cross-Field Validation",
+            link: "/features/cross-field-validation",
+          },
           { text: "Enum / Choices", link: "/features/choices" },
           { text: "Array Type", link: "/features/array" },
           { text: "Prefix Scoping", link: "/features/prefix" },

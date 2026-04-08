@@ -4,17 +4,17 @@ Every key in the schema object maps to a configuration describing the expected e
 
 ## Scalar Variables
 
-| Option      | Type                                           | Description                                                              |
-| ----------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
-| `type`      | `"string" \| "number" \| "boolean"`            | The expected data type                                                   |
-| `required`  | `boolean`                                      | Fail if the variable is missing                                          |
-| `default`   | `string \| number \| boolean`                  | Fallback when the variable is unset                                      |
-| `choices`   | `readonly (string \| number \| boolean)[]`     | Fixed set of allowed values (exclusive with `validate`/`format`)         |
-| `validate`  | `(value) => boolean`                           | Custom validation function (exclusive with `choices`/`format`)           |
-| `format`    | `"url" \| "email" \| "ip" \| "port" \| "uuid"` | Built-in format preset for strings (exclusive with `choices`/`validate`) |
-| `describe`  | `string`                                       | Human-readable description, shown in error messages                      |
-| `sensitive` | `boolean`                                      | Redact the value in error messages and change-listener arguments         |
-| `coerce`    | `(raw: string) => unknown`                     | Custom coercion function, runs before type parsing                       |
+| Option      | Type                                           | Description                                                               |
+| ----------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
+| `type`      | `"string" \| "number" \| "boolean"`            | The expected data type                                                    |
+| `required`  | `boolean \| (env) => boolean`                  | Fail if the variable is missing. Pass a function for conditional required |
+| `default`   | `string \| number \| boolean`                  | Fallback when the variable is unset                                       |
+| `choices`   | `readonly (string \| number \| boolean)[]`     | Fixed set of allowed values (exclusive with `validate`/`format`)          |
+| `validate`  | `(value) => boolean`                           | Custom validation function (exclusive with `choices`/`format`)            |
+| `format`    | `"url" \| "email" \| "ip" \| "port" \| "uuid"` | Built-in format preset for strings (exclusive with `choices`/`validate`)  |
+| `describe`  | `string`                                       | Human-readable description, shown in error messages                       |
+| `sensitive` | `boolean`                                      | Redact the value in error messages and change-listener arguments          |
+| `coerce`    | `(raw: string) => unknown`                     | Custom coercion function, runs before type parsing                        |
 
 ## Array Variables
 
@@ -23,7 +23,7 @@ Every key in the schema object maps to a configuration describing the expected e
 | `type`      | `"array"`                           | Declares the variable as an array                    |
 | `itemType`  | `"string" \| "number" \| "boolean"` | The type of each element                             |
 | `separator` | `string`                            | Delimiter (defaults to `","`)                        |
-| `required`  | `boolean`                           | Fail if the variable is missing                      |
+| `required`  | `boolean \| (env) => boolean`       | Fail if the variable is missing; supports a function |
 | `default`   | `string[]`                          | Fallback when the variable is unset                  |
 | `describe`  | `string`                            | Human-readable description, shown in error messages  |
 | `sensitive` | `boolean`                           | Redact the value in error messages and change events |
@@ -47,14 +47,15 @@ PORT: { type: "number", required: true, choices: [3000], validate: (v) => v > 0 
 
 The second argument to `createEnv` configures global behaviour:
 
-| Option     | Type                         | Description                                                 |
-| ---------- | ---------------------------- | ----------------------------------------------------------- |
-| `envFiles` | `boolean \| string[]`        | Load `.env` files before validation                         |
-| `prefix`   | `string`                     | Prefix prepended when reading each env variable             |
-| `onError`  | `(errors: string[]) => void` | Custom error handler — replaces the default throw           |
-| `strict`   | `boolean`                    | Proxy that throws on access to keys not in the schema       |
-| `freeze`   | `boolean`                    | `Object.freeze` the result — mutations throw                |
-| `watch`    | `true`                       | Return a watchable object with `refresh()`, `on()`, `off()` |
+| Option     | Type                                      | Description                                                 |
+| ---------- | ----------------------------------------- | ----------------------------------------------------------- |
+| `envFiles` | `boolean \| string[]`                     | Load `.env` files before validation                         |
+| `prefix`   | `string`                                  | Prefix prepended when reading each env variable             |
+| `onError`  | `(errors: string[]) => void`              | Custom error handler — replaces the default throw           |
+| `strict`   | `boolean`                                 | Proxy that throws on access to keys not in the schema       |
+| `freeze`   | `boolean`                                 | `Object.freeze` the result — mutations throw                |
+| `watch`    | `true`                                    | Return a watchable object with `refresh()`, `on()`, `off()` |
+| `validate` | `(env: InferEnv<S>) => boolean \| string` | Cross-field validation after per-field checks pass          |
 
 ::: warning
 `freeze` and `watch` are mutually exclusive — both at the type level and at runtime.

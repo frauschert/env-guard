@@ -25,14 +25,15 @@ Creates a strongly typed environment object based on the provided schema.
 
 ## `EnvOptions`
 
-| Property   | Type                         | Default     | Description                                 |
-| ---------- | ---------------------------- | ----------- | ------------------------------------------- |
-| `envFiles` | `boolean \| string[]`        | `false`     | Load `.env` files before validation         |
-| `prefix`   | `string`                     | `undefined` | Prefix prepended when reading env variables |
-| `onError`  | `(errors: string[]) => void` | `undefined` | Custom error handler replaces default throw |
-| `strict`   | `boolean`                    | `false`     | Proxy throws on access to unknown keys      |
-| `freeze`   | `boolean`                    | `false`     | `Object.freeze` the returned object         |
-| `watch`    | `true`                       | `undefined` | Return a watchable env with `refresh()`     |
+| Property   | Type                                      | Default     | Description                                                                                                                               |
+| ---------- | ----------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `envFiles` | `boolean \| string[]`                     | `false`     | Load `.env` files before validation                                                                                                       |
+| `prefix`   | `string`                                  | `undefined` | Prefix prepended when reading env variables                                                                                               |
+| `onError`  | `(errors: string[]) => void`              | `undefined` | Custom error handler replaces default throw                                                                                               |
+| `strict`   | `boolean`                                 | `false`     | Proxy throws on access to unknown keys                                                                                                    |
+| `freeze`   | `boolean`                                 | `false`     | `Object.freeze` the returned object                                                                                                       |
+| `watch`    | `true`                                    | `undefined` | Return a watchable env with `refresh()`                                                                                                   |
+| `validate` | `(env: InferEnv<S>) => boolean \| string` | `undefined` | Cross-field validation after per-field checks pass. Return `true` to pass, `false` for a generic error, or a string as the error message. |
 
 `freeze` and `watch` are mutually exclusive (type-level and runtime).
 
@@ -44,14 +45,14 @@ Configuration for a single scalar environment variable. One of the following var
 
 ### Common Fields
 
-| Field       | Type                                | Description                                   |
-| ----------- | ----------------------------------- | --------------------------------------------- |
-| `type`      | `"string" \| "number" \| "boolean"` | Expected data type                            |
-| `required`  | `boolean`                           | Fail if missing                               |
-| `default`   | `string \| number \| boolean`       | Fallback value                                |
-| `describe`  | `string`                            | Human-readable description for error messages |
-| `sensitive` | `boolean`                           | Redact value in errors and change events      |
-| `coerce`    | `(raw: string) => unknown`          | Custom coercion before type parsing           |
+| Field       | Type                                               | Description                                                                    |
+| ----------- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `type`      | `"string" \| "number" \| "boolean"`                | Expected data type                                                             |
+| `required`  | `boolean \| ((env: NodeJS.ProcessEnv) => boolean)` | Fail if missing; function receives full `process.env` for conditional required |
+| `default`   | `string \| number \| boolean`                      | Fallback value                                                                 |
+| `describe`  | `string`                                           | Human-readable description for error messages                                  |
+| `sensitive` | `boolean`                                          | Redact value in errors and change events                                       |
+| `coerce`    | `(raw: string) => unknown`                         | Custom coercion before type parsing                                            |
 
 ### Variant-Specific Fields
 
@@ -69,16 +70,16 @@ These are mutually exclusive — only one of the following can be set per variab
 
 Configuration for an array environment variable.
 
-| Field       | Type                                | Description                           |
-| ----------- | ----------------------------------- | ------------------------------------- |
-| `type`      | `"array"`                           | Must be `"array"`                     |
-| `itemType`  | `"string" \| "number" \| "boolean"` | Type of each array element            |
-| `separator` | `string`                            | Delimiter (default `","`)             |
-| `required`  | `boolean`                           | Fail if missing                       |
-| `default`   | `string[]`                          | Fallback value                        |
-| `describe`  | `string`                            | Human-readable description            |
-| `sensitive` | `boolean`                           | Redact in errors and change events    |
-| `coerce`    | `(raw: string) => unknown`          | Custom coercion, bypasses split logic |
+| Field       | Type                                               | Description                                    |
+| ----------- | -------------------------------------------------- | ---------------------------------------------- |
+| `type`      | `"array"`                                          | Must be `"array"`                              |
+| `itemType`  | `"string" \| "number" \| "boolean"`                | Type of each array element                     |
+| `separator` | `string`                                           | Delimiter (default `","`)                      |
+| `required`  | `boolean \| ((env: NodeJS.ProcessEnv) => boolean)` | Fail if missing; supports conditional function |
+| `default`   | `string[]`                                         | Fallback value                                 |
+| `describe`  | `string`                                           | Human-readable description                     |
+| `sensitive` | `boolean`                                          | Redact in errors and change events             |
+| `coerce`    | `(raw: string) => unknown`                         | Custom coercion, bypasses split logic          |
 
 ---
 
