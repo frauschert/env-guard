@@ -1712,4 +1712,263 @@ describe("createEnv", () => {
       expect(() => env.refresh()).toThrow("MIN must be < MAX");
     });
   });
+
+  describe("edge cases — empty strings", () => {
+    afterEach(() => {
+      delete process.env.VAR;
+      delete process.env.ITEMS;
+    });
+
+    it("empty string satisfies required:true for type:string — it is present, not missing", () => {
+      process.env.VAR = "";
+      expect(() =>
+        createEnv({ VAR: { type: "string", required: true } }),
+      ).not.toThrow();
+    });
+
+    it("returns empty string for type:string", () => {
+      process.env.VAR = "";
+      const env = createEnv({ VAR: { type: "string" } });
+      expect(env.VAR).toBe("");
+    });
+
+    it("parses empty string as 0 for type:number (Number('') === 0)", () => {
+      process.env.VAR = "";
+      const env = createEnv({ VAR: { type: "number" } });
+      expect(env.VAR).toBe(0);
+    });
+
+    it("throws for type:boolean with empty string", () => {
+      process.env.VAR = "";
+      expect(() =>
+        createEnv({ VAR: { type: "boolean", required: true } }),
+      ).toThrow("Expected 'boolean'");
+    });
+
+    it("type:array itemType:string with empty string yields one empty-string element", () => {
+      process.env.ITEMS = "";
+      const env = createEnv({
+        ITEMS: { type: "array", itemType: "string", required: true },
+      });
+      expect(env.ITEMS).toEqual([""]);
+    });
+
+    it("type:array itemType:number with empty string yields [0]", () => {
+      process.env.ITEMS = "";
+      const env = createEnv({
+        ITEMS: { type: "array", itemType: "number", required: true },
+      });
+      expect(env.ITEMS).toEqual([0]);
+    });
+
+    it("format:url rejects empty string", () => {
+      process.env.VAR = "";
+      expect(() =>
+        createEnv({ VAR: { type: "string", format: "url", required: true } }),
+      ).toThrow("does not match format 'url'");
+    });
+
+    it("format:email rejects empty string", () => {
+      process.env.VAR = "";
+      expect(() =>
+        createEnv({ VAR: { type: "string", format: "email", required: true } }),
+      ).toThrow("does not match format 'email'");
+    });
+
+    it("validate receives empty string as the parsed value", () => {
+      process.env.VAR = "";
+      const received: unknown[] = [];
+      createEnv({
+        VAR: {
+          type: "string",
+          validate: (v) => {
+            received.push(v);
+            return true;
+          },
+        },
+      });
+      expect(received).toEqual([""]);
+    });
+
+    it("choices rejects empty string not in list", () => {
+      process.env.VAR = "";
+      expect(() =>
+        createEnv({
+          VAR: { type: "string", required: true, choices: ["a", "b"] as const },
+        }),
+      ).toThrow("not in allowed choices");
+    });
+  });
+
+  describe("edge cases — whitespace-only values", () => {
+    afterEach(() => {
+      delete process.env.VAR;
+      delete process.env.ITEMS;
+    });
+
+    it("type:string preserves whitespace-only value as-is", () => {
+      process.env.VAR = "   ";
+      const env = createEnv({ VAR: { type: "string" } });
+      expect(env.VAR).toBe("   ");
+    });
+
+    it("whitespace-only satisfies required:true — it is present, not missing", () => {
+      process.env.VAR = "   ";
+      expect(() =>
+        createEnv({ VAR: { type: "string", required: true } }),
+      ).not.toThrow();
+    });
+
+    it("parses whitespace-only as 0 for type:number (Number('  ') === 0)", () => {
+      process.env.VAR = "   ";
+      const env = createEnv({ VAR: { type: "number" } });
+      expect(env.VAR).toBe(0);
+    });
+
+    it("throws for type:boolean with whitespace-only value", () => {
+      process.env.VAR = "   ";
+      expect(() =>
+        createEnv({ VAR: { type: "boolean", required: true } }),
+      ).toThrow("Expected 'boolean'");
+    });
+
+    it("parses '  true  ' as true for type:boolean (trims before matching)", () => {
+      process.env.VAR = "  true  ";
+      const env = createEnv({ VAR: { type: "boolean", required: true } });
+      expect(env.VAR).toBe(true);
+    });
+
+    it("parses '  false  ' as false for type:boolean", () => {
+      process.env.VAR = "  false  ";
+      const env = createEnv({ VAR: { type: "boolean", required: true } });
+      expect(env.VAR).toBe(false);
+    });
+
+    it("parses '  1  ' as true for type:boolean", () => {
+      process.env.VAR = "  1  ";
+      const env = createEnv({ VAR: { type: "boolean", required: true } });
+      expect(env.VAR).toBe(true);
+    });
+
+    it("parses '  0  ' as false for type:boolean", () => {
+      process.env.VAR = "  0  ";
+      const env = createEnv({ VAR: { type: "boolean", required: true } });
+      expect(env.VAR).toBe(false);
+    });
+
+    it("whitespace-only array items are trimmed to empty strings", () => {
+      process.env.ITEMS = "  ,  ";
+      const env = createEnv({
+        ITEMS: { type: "array", itemType: "string", required: true },
+      });
+      expect(env.ITEMS).toEqual(["", ""]);
+    });
+
+    it("format:email rejects whitespace-only value", () => {
+      process.env.VAR = "   ";
+      expect(() =>
+        createEnv({ VAR: { type: "string", format: "email", required: true } }),
+      ).toThrow("does not match format 'email'");
+    });
+
+    it("format:url rejects whitespace-only value", () => {
+      process.env.VAR = "   ";
+      expect(() =>
+        createEnv({ VAR: { type: "string", format: "url", required: true } }),
+      ).toThrow("does not match format 'url'");
+    });
+  });
+
+  describe("edge cases — special characters", () => {
+    afterEach(() => {
+      delete process.env.VAR;
+      delete process.env.ITEMS;
+    });
+
+    it("preserves '=' sign in string value", () => {
+      process.env.VAR = "key=value=extra";
+      const env = createEnv({ VAR: { type: "string", required: true } });
+      expect(env.VAR).toBe("key=value=extra");
+    });
+
+    it("preserves '#' character in string value", () => {
+      process.env.VAR = "color=#ff0000";
+      const env = createEnv({ VAR: { type: "string", required: true } });
+      expect(env.VAR).toBe("color=#ff0000");
+    });
+
+    it("preserves '$' character in string value", () => {
+      process.env.VAR = "price=$42.99";
+      const env = createEnv({ VAR: { type: "string", required: true } });
+      expect(env.VAR).toBe("price=$42.99");
+    });
+
+    it("preserves backslash in string value", () => {
+      process.env.VAR = "C:\\Users\\admin";
+      const env = createEnv({ VAR: { type: "string", required: true } });
+      expect(env.VAR).toBe("C:\\Users\\admin");
+    });
+
+    it("preserves newline character in string value", () => {
+      process.env.VAR = "line1\nline2";
+      const env = createEnv({ VAR: { type: "string", required: true } });
+      expect(env.VAR).toBe("line1\nline2");
+    });
+
+    it("preserves unicode emoji in string value", () => {
+      process.env.VAR = "hello \u{1F680} world";
+      const env = createEnv({ VAR: { type: "string", required: true } });
+      expect(env.VAR).toBe("hello \u{1F680} world");
+    });
+
+    it("preserves accented UTF-8 characters in string value", () => {
+      process.env.VAR = "caf\u00E9 na\u00EFve r\u00E9sum\u00E9";
+      const env = createEnv({ VAR: { type: "string", required: true } });
+      expect(env.VAR).toBe("caf\u00E9 na\u00EFve r\u00E9sum\u00E9");
+    });
+
+    it("preserves CJK characters in string value", () => {
+      process.env.VAR = "\u3053\u3093\u306B\u3061\u306F\u4E16\u754C";
+      const env = createEnv({ VAR: { type: "string", required: true } });
+      expect(env.VAR).toBe("\u3053\u3093\u306B\u3061\u306F\u4E16\u754C");
+    });
+
+    it("array items with special characters (=, #, $) are preserved", () => {
+      process.env.ITEMS = "a=1,b#2,c$3";
+      const env = createEnv({
+        ITEMS: { type: "array", itemType: "string", required: true },
+      });
+      expect(env.ITEMS).toEqual(["a=1", "b#2", "c$3"]);
+    });
+
+    it("array with unicode items", () => {
+      process.env.ITEMS = "\u{1F680},caf\u00E9,\u4E16\u754C";
+      const env = createEnv({
+        ITEMS: { type: "array", itemType: "string", required: true },
+      });
+      expect(env.ITEMS).toEqual(["\u{1F680}", "caf\u00E9", "\u4E16\u754C"]);
+    });
+
+    it("handles very long string values", () => {
+      const longValue = "x".repeat(10_000);
+      process.env.VAR = longValue;
+      const env = createEnv({ VAR: { type: "string", required: true } });
+      expect(env.VAR).toBe(longValue);
+      expect(env.VAR.length).toBe(10_000);
+    });
+
+    it("format:url accepts URLs with query strings and encoded characters", () => {
+      process.env.VAR = "https://example.com/path?q=hello%20world&lang=en";
+      const env = createEnv({
+        VAR: { type: "string", format: "url", required: true },
+      });
+      expect(env.VAR).toBe("https://example.com/path?q=hello%20world&lang=en");
+    });
+
+    it("number value with surrounding whitespace is parsed correctly", () => {
+      process.env.VAR = "  3000  ";
+      const env = createEnv({ VAR: { type: "number", required: true } });
+      expect(env.VAR).toBe(3000);
+    });
+  });
 });
